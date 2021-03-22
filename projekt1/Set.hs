@@ -2,6 +2,7 @@ module Set(Set(..), empty, null, singleton, union, fromList
               , member, toList, toAscList, elems
               ) where
 import Prelude hiding(null)
+import qualified Data.List as L
 
 data Set a = Empty
            | Singleton a
@@ -33,22 +34,32 @@ toList (Singleton x) = [x]
 toList (Union s1 s2) = toList s1 ++ toList s2
 
 toAscList :: Ord a => Set a -> [a]
-toAscList = undefined 
+toAscList = L.sort . toList 
 
 elems :: Set a -> [a]
 elems = toList
 
 union :: Set a -> Set a -> Set a
-union = undefined 
+union s Empty = s
+union Empty s = s
+union s1 s2 = Union s1 s2
 
 insert :: a -> Set a -> Set a
-insert = undefined 
+insert x Empty = Singleton x
+insert x s = Union (Singleton x) s
 
--- instance Ord a => Eq (Set a) where
+instance Ord a => Eq (Set a) where
+    Empty == Empty = True
+    Singleton x == Singleton y = x == y
+    s1 == s2 = toAscList s1 == toAscList s2
 
--- instance Semigroup (Set a) where
-
--- instance Monoid (Set a) where
+instance Semigroup (Set a) where
+    s <> Empty = s
+    Empty <> s = s
+    s1 <> s2 = s1 `union` s2
+    
+instance Monoid (Set a) where
+    mempty = Empty
 
 instance Show a => Show (Set a) where
     show Empty = "null"

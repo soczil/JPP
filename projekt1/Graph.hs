@@ -25,7 +25,13 @@ instance Graph Relation where
             newEdges = foldl (\acc pair -> Set.union acc (Set.singleton pair)) Set.empty cartezianProduct
             cartezianProduct = [(x, y) | x <- Set.elems d1, y <- Set.elems d2]
                 
--- instance (Ord a, Num a) => Num (Relation a) where
+instance (Ord a, Num a) => Num (Relation a) where
+    fromInteger = vertex . fromInteger
+    (+)         = union
+    (*)         = connect
+    signum      = const empty 
+    abs         = id
+    negate      = id
 
 instance Graph Basic where
     empty = Empty
@@ -33,7 +39,8 @@ instance Graph Basic where
     union = Union
     connect = Connect
 
--- instance Ord a => Eq (Basic a) where
+instance Ord a => Eq (Basic a) where
+    g1 == g2 = fromBasicToRelation g1 == fromBasicToRelation g2
 
 instance (Ord a, Num a) => Num (Basic a) where
     fromInteger = vertex . fromInteger
@@ -50,9 +57,39 @@ instance Monoid (Basic a) where
     mempty = Empty
 
 fromBasic :: Graph g => Basic a -> g a
-fromBasic = undefined 
+fromBasic Empty = empty
+fromBasic (Vertex x) = vertex x
+fromBasic (Union g1 g2) = union (fromBasic g1) (fromBasic g2)
+fromBasic (Connect g1 g2) = connect (fromBasic g1) (fromBasic g2)
 
--- instance (Ord a, Show a) => Show (Basic a) where
+fromBasicToRelation :: Basic a -> Relation a
+fromBasicToRelation = fromBasic
+
+instance (Ord a, Show a) => Show (Basic a) where
+    show g = showAux $ fromBasicToRelation g
+        where
+            showAux (Relation d r) = 
+                let edges = sortPairElements $ Set.toAscList r
+                    vertices = loneVertices (Set.toAscList d) edges
+                in "edges " ++ show edges ++ " + vertices " ++ show vertices
+
+sortPairElements :: Ord a => [(a, a)] -> [(a, a)]
+sortPairElements [] = []
+sortPairElements (x:xs)
+    | uncurry (>) x = (snd x, fst x) : sortPairElements xs
+    | otherwise = x : sortPairElements xs
+
+loneVertices :: Eq a => [a] -> [(a, a)] -> [a]
+loneVertices [] _ = []
+loneVertices (x:xs) edges
+    | isConnected x edges = loneVertices xs edges
+    | otherwise = x : loneVertices xs edges
+
+isConnected :: Eq a => a -> [(a, a)] -> Bool
+isConnected v [] = False
+isConnected v (x:xs)
+    | v == fst x || v == snd x = True
+    | otherwise = isConnected v xs
 
 -- | Example graph
 -- >>> example34
@@ -60,6 +97,19 @@ fromBasic = undefined
 
 example34 :: Basic Int
 example34 = 1*2 + 2*(3+4) + (3+4)*5 + 17
+
+-- =============================== WYWALIC =============================
+
+jol :: Relation Int
+jol = fromBasic example34
+
+exampleJol :: Relation Int
+exampleJol = 1*2 + 2*(3+4) + (3+4)*5 + 17
+
+exampleJol2 :: Relation Int
+exampleJol2 = 2*(3+4) + 1*2 + (3+4)*5 + 17
+
+-- =============================== WYWALIC =============================
 
 todot :: (Ord a, Show a) => Basic a -> String
 todot = undefined

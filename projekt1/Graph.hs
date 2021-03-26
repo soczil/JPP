@@ -69,15 +69,9 @@ instance (Ord a, Show a) => Show (Basic a) where
     show g = showAux $ fromBasicToRelation g
         where
             showAux (Relation d r) = 
-                let edges = sortPairElements $ Set.toAscList r
+                let edges = Set.toAscList r
                     vertices = loneVertices (Set.toAscList d) edges
                 in "edges " ++ show edges ++ " + vertices " ++ show vertices
-
-sortPairElements :: Ord a => [(a, a)] -> [(a, a)]
-sortPairElements [] = []
-sortPairElements (x:xs)
-    | uncurry (>) x = (snd x, fst x) : sortPairElements xs
-    | otherwise = x : sortPairElements xs
 
 loneVertices :: Eq a => [a] -> [(a, a)] -> [a]
 loneVertices [] _ = []
@@ -114,14 +108,18 @@ exampleJol2 = 2*(3+4) + 1*2 + (3+4)*5 + 17
 todot :: (Ord a, Show a) => Basic a -> String
 todot = undefined
 
--- instance Functor Basic where
+instance Functor Basic where
+    fmap f Empty = Empty
+    fmap f (Vertex x) = Vertex (f x) 
+    fmap f (Union g1 g2) = Union (fmap f g1) (fmap f g2)
+    fmap f (Connect g1 g2) = Connect (fmap f g1) (fmap f g2)
 
 -- | Merge vertices
 -- >>> mergeV 3 4 34 example34
 -- edges [(1,2),(2,34),(34,5)] + vertices [17]
 
 mergeV :: Eq a => a -> a -> a -> Basic a -> Basic a
-mergeV = undefined
+mergeV a b c = fmap (\x -> if x == a || x == b then c else x)
 
 -- instance Applicative Basic where
 

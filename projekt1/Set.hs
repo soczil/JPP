@@ -33,10 +33,15 @@ toList Empty = []
 toList (Singleton x) = [x]
 toList (Union s1 s2) = toList s1 ++ toList s2
 
+-- toAscList :: Ord a => Set a -> [a]
+-- toAscList = removeDuplicates . L.sort . toList
+--     where 
+--         removeDuplicates l = foldr (\x acc -> if x `elem` acc then acc else x : acc) [] l
+
 toAscList :: Ord a => Set a -> [a]
 toAscList = removeDuplicates . L.sort . toList
     where 
-        removeDuplicates l = foldr (\x acc -> if x `elem` acc then acc else x : acc) [] l
+        removeDuplicates l = foldr (\x acc -> if not (L.null acc) && x == head acc then acc else x : acc) [] l
 
 elems :: Set a -> [a]
 elems = toList

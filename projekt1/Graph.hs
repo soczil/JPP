@@ -92,21 +92,19 @@ isConnected v (x:xs)
 example34 :: Basic Int
 example34 = 1*2 + 2*(3+4) + (3+4)*5 + 17
 
--- =============================== WYWALIC =============================
-
-jol :: Relation Int
-jol = fromBasic example34
-
-exampleJol :: Relation Int
-exampleJol = 1*2 + 2*(3+4) + (3+4)*5 + 17
-
-exampleJol2 :: Relation Int
-exampleJol2 = 2*(3+4) + 1*2 + (3+4)*5 + 17
-
--- =============================== WYWALIC =============================
-
 todot :: (Ord a, Show a) => Basic a -> String
-todot = undefined
+todot g = "disgraph {\n" ++ todotAux (fromBasic g) ++ "}"
+    where 
+        todotAux (Relation d r) =
+            let edges = Set.toAscList r
+                vertices = loneVertices (Set.toAscList d) edges
+            in edgesToString edges ++ verticesToString vertices
+
+edgesToString :: (Show a) => [(a, a)] -> String 
+edgesToString = foldl (\acc (x, y) -> acc ++ show x ++ "->" ++ show y ++ ";\n") ""
+
+verticesToString :: (Show a) => [a] -> String
+verticesToString = foldl (\acc x -> show x ++ ";\n") ""
 
 instance Functor Basic where
     fmap f Empty = Empty

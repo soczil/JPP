@@ -28,17 +28,17 @@ distributive x y z = x*(y+z) == x*y + x*z
 decomposable :: Basic Int -> Basic Int -> Basic Int -> Bool
 decomposable x y z = x*y*z == x*y + x*z + y*z
 
-monadRightId :: Basic Int -> Bool
-monadRightId x = (x >>= return) == x
+-- monadRightId :: Basic Int -> Bool
+-- monadRightId x = (x >>= return) == x
 
-monadLeftId :: Int -> (Fun Int (Basic Int)) -> Bool
-monadLeftId x (Fun _ g) = (return x >>= g) == g x
+-- monadLeftId :: Int -> (Fun Int (Basic Int)) -> Bool
+-- monadLeftId x (Fun _ g) = (return x >>= g) == g x
 
-monadAssocProp :: Basic Int -> (Fun Int (Basic Int)) -> (Fun Int (Basic Int)) -> Bool
-monadAssocProp x (Fun _ f) (Fun _ g) = ((x >>= f) >>= g) == (x >>= (\x' -> f x' >>= g))
+-- monadAssocProp :: Basic Int -> (Fun Int (Basic Int)) -> (Fun Int (Basic Int)) -> Bool
+-- monadAssocProp x (Fun _ f) (Fun _ g) = ((x >>= f) >>= g) == (x >>= (\x' -> f x' >>= g))
 
-monadAssocProp' :: Basic Int -> Basic Int -> Basic Int -> Bool
-monadAssocProp' x y z = ((x >> y) >> z) == (x >> (y >> z))
+-- monadAssocProp' :: Basic Int -> Basic Int -> Basic Int -> Bool
+-- monadAssocProp' x y z = ((x >> y) >> z) == (x >> (y >> z))
 
 
 main = do
@@ -48,6 +48,8 @@ main = do
        quickCheck rightUnit
        writeln "connect associative"
        quickCheck connectAssociative
+       writeln "commutative"
+       quickCheck unionCommutative
        writeln "union associative"
        quickCheck unionAssociative
        writeln "idempotent"
@@ -56,6 +58,13 @@ main = do
        quickCheck distributive
        writeln "decomposable"
        quickCheck decomposable
+      --  writeln "monad"
+      --  quickCheck monadRightId
+      --  quickCheck monadLeftId
+      --  writeln "monadAssocProp'"
+      --  quickCheckWith stdArgs monadAssocProp'
+      --  writeln "monadAssocProp"
+      --  quickCheckWith stdArgs monadAssocProp
 
 writeln :: String -> IO ()
 writeln = putStrLn
@@ -67,7 +76,7 @@ instance (Arbitrary a) => Arbitrary (Basic a) where
     arb 1 = vertex <$> arbitrary
     arb n = oneof [ union <$> arb2 <*> arb2
                   , connect <$> arb' <*> arb'] where
-      arb2 = arb (div n 2)
+      arb2 = arb (div n 4)
       arb' = arb (intSqrt n)
       intSqrt :: Int -> Int
       intSqrt = round . sqrt . fromIntegral

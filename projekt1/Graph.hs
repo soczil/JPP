@@ -19,11 +19,11 @@ instance Graph Relation where
     empty = Relation Set.empty Set.empty 
     vertex x = Relation (Set.singleton x) Set.empty
     union (Relation d1 r1) (Relation d2 r2) = Relation (Set.union d1 d2) (Set.union r1 r2)
-    connect (Relation d1 r1) (Relation d2 r2) = Relation (Set.union d1 d2) (Set.union oldEdges newEdges)
-        where
+    connect (Relation d1 r1) (Relation d2 r2) = 
+        let cartezianProduct = [(x, y) | x <- Set.elems d1, y <- Set.elems d2]
             oldEdges = Set.union r1 r2
-            newEdges = foldl (\acc pair -> Set.union acc (Set.singleton pair)) Set.empty cartezianProduct
-            cartezianProduct = [(x, y) | x <- Set.elems d1, y <- Set.elems d2]
+            newEdges = foldl (\acc pair -> Set.union (Set.singleton pair) acc) Set.empty cartezianProduct
+        in Relation (Set.union d1 d2) (Set.union oldEdges newEdges)
                 
 instance (Ord a, Num a) => Num (Relation a) where
     fromInteger = vertex . fromInteger
@@ -41,6 +41,9 @@ instance Graph Basic where
 
 instance Ord a => Eq (Basic a) where
     g1 == g2 = fromBasicToRelation g1 == fromBasicToRelation g2
+
+-- removeDuplicates :: Ord a => Relation a -> Relation a
+-- removeDuplicates (Relation d r) = Relation (Set.fromList (Set.toAscList d)) (Set.fromList (Set.toAscList r))
 
 instance (Ord a, Num a) => Num (Basic a) where
     fromInteger = vertex . fromInteger
@@ -119,10 +122,20 @@ instance Functor Basic where
 mergeV :: Eq a => a -> a -> a -> Basic a -> Basic a
 mergeV a b c = fmap (\x -> if x == a || x == b then c else x)
 
--- instance Applicative Basic where
+instance Applicative Basic where
+    pure = Vertex
+    Empty <*> _ = Empty
+    Vertex f <*> g = fmap f g
+    Union f1 f2 <*> g = Union (f1 <*> g) (f2 <*> g)
+    Connect f1 f2 <*> g = Connect (f1 <*> g) (f2 <*> g)
 
--- instance Monad Basic where
-
+instance Monad Basic where
+    return = Vertex
+    Empty >>= _ = Empty
+    Vertex x >>= f = f x
+    Union f1 f2 >>= f = Union (f1 >>= f) (f2 >>= f)
+    Connect f1 f2 >>= f = Connect (f1 >>= f) (f2 >>= f)
+    
 -- | Split Vertex
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]

@@ -33,11 +33,6 @@ toList Empty = []
 toList (Singleton x) = [x]
 toList (Union s1 s2) = toList s1 ++ toList s2
 
--- toAscList :: Ord a => Set a -> [a]
--- toAscList = removeDuplicates . L.sort . toList
---     where 
---         removeDuplicates l = foldr (\x acc -> if x `elem` acc then acc else x : acc) [] l
-
 toAscList :: Ord a => Set a -> [a]
 toAscList = removeDuplicates . L.sort . toList
     where 
@@ -50,7 +45,6 @@ union :: Set a -> Set a -> Set a
 union s Empty = s
 union Empty s = s
 union s1 s2 = Union s1 s2
--- union = Union
 
 insert :: a -> Set a -> Set a
 insert x Empty = Singleton x
@@ -62,7 +56,6 @@ instance Ord a => Eq (Set a) where
     s1 == s2 = toAscList s1 == toAscList s2
 
 instance Semigroup (Set a) where
-    -- s1 <> s2 = s1 `union` s2
     (<>) = union
     
 instance Monoid (Set a) where
@@ -74,6 +67,6 @@ instance Show a => Show (Set a) where
     show (Union s1 s2) = show (s1, s2)
 
 instance Functor Set where
-    fmap f Empty = Empty
+    fmap _ Empty = Empty
     fmap f (Singleton x) = Singleton (f x)
     fmap f (Union s1 s2) = Union (fmap f s1) (fmap f s2)

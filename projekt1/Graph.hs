@@ -96,7 +96,7 @@ example34 :: Basic Int
 example34 = 1*2 + 2*(3+4) + (3+4)*5 + 17
 
 todot :: (Ord a, Show a) => Basic a -> String
-todot g = "disgraph {\n" ++ todotAux (fromBasic g) ++ "}"
+todot g = "digraph {\n" ++ todotAux (fromBasic g) ++ "}"
     where 
         todotAux (Relation d r) =
             let edges = Set.toAscList r
@@ -104,13 +104,13 @@ todot g = "disgraph {\n" ++ todotAux (fromBasic g) ++ "}"
             in edgesToString edges ++ verticesToString vertices
 
 edgesToString :: (Show a) => [(a, a)] -> String 
-edgesToString = foldl (\acc (x, y) -> acc ++ show x ++ "->" ++ show y ++ ";\n") ""
+edgesToString = foldl (\acc (x, y) -> acc ++ show x ++ " -> " ++ show y ++ ";\n") ""
 
 verticesToString :: (Show a) => [a] -> String
 verticesToString = foldl (\acc x -> show x ++ ";\n") ""
 
 instance Functor Basic where
-    fmap f Empty = Empty
+    fmap _ Empty = Empty
     fmap f (Vertex x) = Vertex (f x) 
     fmap f (Union g1 g2) = Union (fmap f g1) (fmap f g2)
     fmap f (Connect g1 g2) = Connect (fmap f g1) (fmap f g2)
@@ -133,13 +133,23 @@ instance Monad Basic where
     return = Vertex
     Empty >>= _ = Empty
     Vertex x >>= f = f x
-    Union f1 f2 >>= f = Union (f1 >>= f) (f2 >>= f)
-    Connect f1 f2 >>= f = Connect (f1 >>= f) (f2 >>= f)
+    Union g1 g2 >>= f = Union (g1 >>= f) (g2 >>= f)
+    Connect g1 g2 >>= f = Connect (g1 >>= f) (g2 >>= f)
     
 -- | Split Vertex
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
-splitV = undefined
+splitV a b c g = 
+    let g1 = g >>= (\x -> if x == a then return b else return x)
+        g2 = g >>= (\x -> if x == a then return c else return x)
+    in Union g1 g2
 
+-- renameVertex :: Eq a => a -> a -> Basic a -> Basic a
+-- renameVertex _ _ Empty = Empty
+-- renameVertex a b (Vertex x) = if x == a then return b else return x
+-- renameVertex a b (Union g1 g2) = do
+--     g1' <- renameVertex a b g1
+--     g2' <- renameVertex a b g2
+--     return $ Union g1' g2'

@@ -42,9 +42,6 @@ instance Graph Basic where
 instance Ord a => Eq (Basic a) where
     g1 == g2 = fromBasicToRelation g1 == fromBasicToRelation g2
 
--- removeDuplicates :: Ord a => Relation a -> Relation a
--- removeDuplicates (Relation d r) = Relation (Set.fromList (Set.toAscList d)) (Set.fromList (Set.toAscList r))
-
 instance (Ord a, Num a) => Num (Basic a) where
     fromInteger = vertex . fromInteger
     (+)         = union
@@ -140,15 +137,6 @@ instance Monad Basic where
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
--- splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
--- splitV a b c g = 
---     let g1 = g >>= (\x -> renameVertex x a b)
---         g2 = g >>= (\x -> renameVertex x a c)
---     in Union g1 g2
-
--- renameVertex :: (Eq a, Monad m) => a -> a -> a -> m a
--- renameVertex x a b = if x == a then return b else return x
-
 splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
 splitV a b c g = do
     g1 <- renameVertices a b g
@@ -156,7 +144,7 @@ splitV a b c g = do
     Union g1 g2
 
 renameVertices :: (Eq a, Monad m) => a -> a -> Basic a -> m (Basic a)
-renameVertices a b Empty = return Empty
+renameVertices _ _ Empty = return Empty
 renameVertices a b (Vertex x) = if x == a then return (Vertex b) else return (Vertex x)
 renameVertices a b (Union g1 g2) = do
     g1' <- renameVertices a b g1

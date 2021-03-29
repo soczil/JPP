@@ -140,16 +140,29 @@ instance Monad Basic where
 -- >>> splitV 34 3 4 (mergeV 3 4 34 example34)
 -- edges [(1,2),(2,3),(2,4),(3,5),(4,5)] + vertices [17]
 
-splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
-splitV a b c g = 
-    let g1 = g >>= (\x -> if x == a then return b else return x)
-        g2 = g >>= (\x -> if x == a then return c else return x)
-    in Union g1 g2
+-- splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
+-- splitV a b c g = 
+--     let g1 = g >>= (\x -> renameVertex x a b)
+--         g2 = g >>= (\x -> renameVertex x a c)
+--     in Union g1 g2
 
--- renameVertex :: Eq a => a -> a -> Basic a -> Basic a
--- renameVertex _ _ Empty = Empty
--- renameVertex a b (Vertex x) = if x == a then return b else return x
--- renameVertex a b (Union g1 g2) = do
---     g1' <- renameVertex a b g1
---     g2' <- renameVertex a b g2
---     return $ Union g1' g2'
+-- renameVertex :: (Eq a, Monad m) => a -> a -> a -> m a
+-- renameVertex x a b = if x == a then return b else return x
+
+splitV :: Eq a => a -> a -> a -> Basic a -> Basic a
+splitV a b c g = do
+    g1 <- renameVertices a b g
+    g2 <- renameVertices a c g
+    Union g1 g2
+
+renameVertices :: (Eq a, Monad m) => a -> a -> Basic a -> m (Basic a)
+renameVertices a b Empty = return Empty
+renameVertices a b (Vertex x) = if x == a then return (Vertex b) else return (Vertex x)
+renameVertices a b (Union g1 g2) = do
+    g1' <- renameVertices a b g1
+    g2' <- renameVertices a b g2
+    return $ Union g1' g2'
+renameVertices a b (Connect g1 g2) = do
+    g1' <- renameVertices a b g1
+    g2' <- renameVertices a b g2
+    return $ Connect g1' g2'

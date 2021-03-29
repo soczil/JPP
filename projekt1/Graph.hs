@@ -2,10 +2,10 @@ module Graph where
 import Set(Set)
 import qualified Set as Set
 class Graph g where
-  empty   :: g a
-  vertex  :: a -> g a
-  union   :: g a -> g a -> g a
-  connect :: g a -> g a -> g a
+    empty   :: g a
+    vertex  :: a -> g a
+    union   :: g a -> g a -> g a
+    connect :: g a -> g a -> g a
 
 data Relation a = Relation { domain :: Set a, relation :: Set (a, a) }
     deriving (Eq, Show)

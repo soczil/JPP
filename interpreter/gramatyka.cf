@@ -2,15 +2,7 @@
 
 entrypoints Program ;
 
-Program. Program ::= [TopDef] ;
-
-FnDef. TopDef ::= Type Ident "(" [Arg] ")" Block ;
-
-separator nonempty TopDef "" ;
-
-Arg. Arg ::= Type Ident ;
-
-separator Arg "," ;
+Program. Program ::= [FunDef] ;
 
 -- Types --------------------------------
 
@@ -22,6 +14,8 @@ Bool. Type ::= "bool" ;
 
 Void. Type ::= "void" ;
 
+Array. Type ::= "Array" "<" Type ">" ;
+
 -- Statements ----------------------------------------
 
 Block. Block ::= "{" [Stmt] "}" ;
@@ -30,7 +24,23 @@ BStmt. Stmt ::= Block ;
 
 Empty. Stmt ::= ";" ;
 
-Decl. Stmt ::= Type [Ident] ";" ;
+FunDef. FunDef ::= Type Ident "(" [Arg] ")" Block ;
+
+separator nonempty FunDef "" ;
+
+Arg. Arg ::= Type Ident ;
+
+separator Arg "," ;
+
+FStmt. Stmt ::= FunDef ;
+
+ArrDecl. Stmt ::= "Array" "<" Type ">" Ident = Expr "*" "[" Expr "]" ;
+
+DStmt. Stmt ::= Decl ;
+
+NormalDecl. Decl ::= Type [Item] ";" ;
+
+FinalDecl. Decl ::= "final" Type [Item] ";" ;
 
 NoInit. Item ::= Ident ;
 
@@ -48,13 +58,17 @@ Ret. Stmt ::= "return" Expr ";" ;
 
 RetV. Stmt ::= "return" ";" ;
 
-Elif. ElseIf ::= "else if" "(" Expr ")" Stmt ;
+Break. Stmt ::= "break" ";" ;
 
-terminator ElseIf "" ;
+Continue. Stmt ::= "continue" ";" ;
 
 Cond. Stmt ::= "if" "(" Expr ")" Stmt [ElseIf] ;
 
 CondElse. Stmt ::= "if" "(" Expr ")" Stmt [ElseIf] "else" Stmt ;
+
+Elif. ElseIf ::= "else if" "(" Expr ")" Stmt ;
+
+terminator ElseIf "" ;
 
 While. Stmt ::= "while" "(" Expr ")" Stmt;
 
@@ -62,9 +76,11 @@ For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Stmt ;
 
 ForInitExpr. ForInit ::= [Expr] ";" ;
 
-ForInitVar. ForInit ::= Type [Item] ";" ;
+ForInitVar. ForInit ::= Decl ;
 
-StExpr. Stmt ::= Expr ";" ;
+EStmt. Stmt ::= Expr ";" ;
+
+Print. Stmt ::= "print" "(" Expr ")" ;
 
 -- Expressions ----------------------------------------
 

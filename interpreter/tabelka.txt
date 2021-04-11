@@ -20,4 +20,4 @@ Na 30 punktów
 17 (4) (funkcje wyższego rzędu, anonimowe, domknięcia) 
 18 (3) (generatory)
 
-Razem: ...
+Razem: 28?

@@ -34,7 +34,7 @@ separator Arg "," ;
 
 FStmt. Stmt ::= FunDef ;
 
-ArrDecl. Stmt ::= "Array" "<" Type ">" Ident = Expr "*" "[" Expr "]" ;
+ArrDecl. Stmt ::= "Array" "<" Type ">" Ident = Expr "**" "[" Expr "]" ;
 
 DStmt. Stmt ::= Decl ;
 
@@ -62,21 +62,23 @@ Break. Stmt ::= "break" ";" ;
 
 Continue. Stmt ::= "continue" ";" ;
 
-Cond. Stmt ::= "if" "(" Expr ")" Stmt [ElseIf] ;
+Cond. Stmt ::= "if" "(" Expr ")" Block [ElseIf] ;
 
-CondElse. Stmt ::= "if" "(" Expr ")" Stmt [ElseIf] "else" Stmt ;
+CondElse. Stmt ::= "if" "(" Expr ")" Block [ElseIf] "else" Block ;
 
-Elif. ElseIf ::= "else if" "(" Expr ")" Stmt ;
+Elif. ElseIf ::= "else if" "(" Expr ")" Block ;
 
 terminator ElseIf "" ;
 
-While. Stmt ::= "while" "(" Expr ")" Stmt;
+While. Stmt ::= "while" "(" Expr ")" Block;
 
-For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Stmt ;
+For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Block ;
 
 ForInitExpr. ForInit ::= [Expr] ";" ;
 
 ForInitVar. ForInit ::= Decl ;
+
+ForIn. Stmt ::= "for" "(" Ident ":" Ident ")" Block ; 
 
 EStmt. Stmt ::= Expr ";" ;
 

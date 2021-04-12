@@ -26,7 +26,6 @@
   breaklines=true,
   breakatwhitespace=true,
   tabsize=3,
-  escapeinside={\%}{)}
 }
 
 \begin{document}
@@ -37,9 +36,7 @@
     \textsc{\bf Karol Soczewica (ks394468)}
 \end{center}
 
-\vspace{0.8cm}
-
-\section*{Opis}
+\subsection*{Opis}
 Język, którego interpreter będę implementował to język Latte z pewnymi dodatkami/zmianami (Latte++).
 Wykonywanie programu będzie zaczynało się od funkcji $\textbf{int main() \{\}}$, która w programie
 musi wystąpić.\\
@@ -57,168 +54,171 @@ przyjmuje domyślną dla swojego typu wartość: \textbf{int} $\rightarrow$ 0, \
 Zmienne deklarowane wewnątrz bloków przesłaniają zmienne o tych samych nazwach spoza bloku.\\
 Parametry funkcji przekazywane są przez wartość.
 
-\section*{Gramatyka}
-Gramatyka LBNF:\\
--- Programs --------------------------------------------\\
+\subsection*{Gramatyka (LBNF)}
+\begin{lstlisting}
+-- Programs ------------------------------------------------------------------
 
 entrypoints Program ;
 
 Program. Program ::= [FunDef] ;
-\\\\
-\noindent
--- Types ------------------------------------------------\\
 
-Int. Type ::= ``int'' ;
+-- Types ---------------------------------------------------------------------
 
-Str. Type ::= ``string'' ;
+Int. Type ::= "int" ;
 
-Bool. Type ::= ``bool'' ;
+Str. Type ::= "string" ;
 
-Void. Type ::= ``void'' ;
+Bool. Type ::= "bool" ;
 
-Array. Type ::= ``Array'' ``<'' Type ``>'' ;
-\\\\
-\noindent
--- Statements ------------------------------------------\\
+Void. Type ::= "void" ;
 
-Block. Block ::= ``\{'' [Stmt] ``\}'' ;
+Array. Type ::= "Array" "<" Type ">" ;
 
-separator Stmt ``'' ;
+-- Statements ----------------------------------------------------------------
+
+Block. Block ::= "{" [Stmt] "}" ;
+
+separator Stmt "" ;
 
 BStmt. Stmt ::= Block ;
 
-Empty. Stmt ::= ``;'' ;
+Empty. Stmt ::= ";" ;
 
-FunDef. FunDef ::= Type Ident ``('' [Arg] ``)'' Block ;
+FunDef. FunDef ::= Type Ident "(" [Arg] ")" Block ;
 
-separator nonempty FunDef ``'' ;
+separator nonempty FunDef "" ;
 
 Arg. Arg ::= Type Ident ;
 
-separator Arg ``,'' ;
+separator Arg "," ;
 
 FStmt. Stmt ::= FunDef ;
 
-ArrDecl. Stmt ::= ``Array'' ``<'' Type ``>'' Ident ``='' Expr ``**'' ``['' Expr ``]'' ``;'' ;
+ArrDecl. Stmt ::= "Array" "<" Type ">" Ident "=" Expr "**" "[" Expr "]" ";" ;
 
-ArrAss. Stmt ::= Ident ``['' Expr ``]'' ``='' Expr ``;'' ;
+ArrAss. Stmt ::= Ident "[" Expr "]" "=" Expr ";" ;
 
 DStmt. Stmt ::= Decl ;
 
-NormalDecl. Decl ::= Type [Item] ``;'' ;
+NormalDecl. Decl ::= Type [Item] ";" ;
 
-FinalDecl. Decl ::= ``final'' Type [Item] ``;'' ;
+FinalDecl. Decl ::= "final" Type [Item] ";" ;
 
 NoInit. Item ::= Ident ;
 
-Init. Item ::= Ident ``='' Expr ;
+Init. Item ::= Ident "=" Expr ;
 
-separator nonempty Item ``,'' ;
+separator nonempty Item "," ;
 
-Ass. Stmt ::= Ident ``='' Expr ``;'' ;
+Ass. Stmt ::= Ident "=" Expr ";" ;
 
-Inc. Stmt ::= Ident ``++'' ``;'' ;
+Inc. Stmt ::= Ident "++" ";" ;
 
-Dec. Stmt ::= Ident ``--'' ``;'' ;
+Dec. Stmt ::= Ident "--" ";" ;
 
-Ret. Stmt ::= ``return'' Expr ``;'' ;
+Ret. Stmt ::= "return" Expr ";" ;
 
-RetV. Stmt ::= ``return'' ``;'' ;
+RetV. Stmt ::= "return" ";" ;
 
-Break. Stmt ::= ``break'' ``;'' ;
+Break. Stmt ::= "break" ";" ;
 
-Continue. Stmt ::= ``continue'' ``;'' ;
+Continue. Stmt ::= "continue" ";" ;
 
-Cond. Stmt ::= ``if'' ``('' Expr ``)'' Block [ElseIf] ;
+Cond. Stmt ::= "if" "(" Expr ")" Block [ElseIf] ;
 
-CondElse. Stmt ::= ``if'' ``('' Expr ``)'' Block [ElseIf] ``else'' Block ;
+CondElse. Stmt ::= "if" "(" Expr ")" Block [ElseIf] "else" Block ;
 
-ElseIf. ElseIf ::= ``else if'' ``('' Expr ``)'' Block ;
+ElseIf. ElseIf ::= "else if" "(" Expr ")" Block ;
 
-separator ElseIf ``'' ;
+separator ElseIf "" ;
 
-While. Stmt ::= ``while'' ``('' Expr ``)'' Block ;
+While. Stmt ::= "while" "(" Expr ")" Block ;
 
-For. Stmt ::= ``for'' ``('' ForInit [Expr] ``;'' [Expr] ``)'' Block ;
+For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Block ;
 
-ForInitExpr. ForInit ::= [Expr] ``;'' ;
+ForInitExpr. ForInit ::= [Expr] ";" ;
 
 ForInitVar. ForInit ::= Decl ;
 
-ForIn. Stmt ::= ``for'' ``('' Ident ``:'' Ident ``)'' Block ; 
+ForIn. Stmt ::= "for" "(" Ident ":" Ident ")" Block ; 
 
-EStmt. Stmt ::= Expr ``;'' ;
+EStmt. Stmt ::= Expr ";" ;
 
-Print. Stmt ::= ``print'' ``('' Expr ``)'' ``;'' ;
-\\\\
-\noindent
--- Expressions ---------------------------------------\\
+Print. Stmt ::= "print" "(" Expr ")" ";" ;
+
+-- Expressions ---------------------------------------------------------------
 
 Evar. Expr6 ::= Ident ;
 
 ELitInt. Expr6 ::= Integer ;
 
-ELitTrue. Expr6 ::= ``true'' ;
+ELitTrue. Expr6 ::= "true" ;
 
-ELitFalse. Expr6 ::= ``false'' ;
+ELitFalse. Expr6 ::= "false" ;
 
-EApp. Expr6 ::= Ident ``('' [Expr] ``)'' ;
+EApp. Expr6 ::= Ident "(" [Expr] ")" ;
+
+ArrRead. Expr6 ::= Ident "[" Expr "]" ;
 
 EString. Expr6 ::= String ;
 
-Neg. Expr5 ::= ``-'' Expr6 ;
+Neg. Expr5 ::= "-" Expr6 ;
 
-Not. Expr5 ::= ``!'' Expr6 ;
+Not. Expr5 ::= "!" Expr6 ;
 
 EMul. Expr4 ::= Expr4 MulOp Expr5 ;
 
 EAdd. Expr3 ::= Expr3 AddOp Expr4 ;
 
+EInc. Expr3 ::= Expr3 "++" ;
+
+EDec. Expr3 ::= Expr3 "--" ;
+
 ERel. Expr2 ::= Expr2 RelOp Expr3 ;
 
-EAnd. Expr1 ::= Expr1 ``\&\&'' Expr2 ;
+EAnd. Expr1 ::= Expr1 "&&" Expr2 ;
 
-EOr. Expr ::= Expr ``||'' Expr1 ;
+EOr. Expr ::= Expr "||" Expr1 ;
 
 coercions Expr 6 ;
 
-separator Expr ``,'' ;
-\\\\
-\noindent
--- Operators --------------------------------------------\\
+separator Expr "," ;
 
-Plus. AddOp ::= ``+'' ;
+-- Operators -----------------------------------------------------------------
 
-Minus. AddOp ::= ``-'' ;
+Plus. AddOp ::= "+" ;
 
-Times. MulOp ::= ``*'' ;
+Minus. AddOp ::= "-" ;
 
-Div. MulOp ::= ``/'' ;
+Times. MulOp ::= "*" ;
 
-Mod. MulOp ::= ``\%'' ;
+Div. MulOp ::= "/" ;
 
-Lt. RelOp ::= ``<'' ;
+Mod. MulOp ::= "%" ;
 
-Leq. RelOp ::= ``<='' ;
+Lt. RelOp ::= "<" ;
 
-Gt. RelOp ::= ``>'' ;
+Leq. RelOp ::= "<=" ;
 
-Geq. RelOp ::= ``>='' ;
+Gt. RelOp ::= ">" ;
 
-Eq. RelOp ::= ``=='' ;
+Geq. RelOp ::= ">=" ;
 
-Neq. RelOp ::= ``!='' ;
-\\\\
-\noindent
--- Comments --------------------------------------------\\
+Eq. RelOp ::= "==" ;
+    
+Neq. RelOp ::= "!=" ;
 
-comment ``\#'' ;
+-- Comments ------------------------------------------------------------------
 
-comment ``//'' ;
+comment "#" ;
 
-comment ``/*'' ``*/'' ;
+comment "//" ;
 
-\section*{Przykłady}
+comment "/*" "*/" ;
+\end{lstlisting}
+
+\subsection*{Przykłady}
+
 \begin{lstlisting}
 // PrintArrayElements.lpp (wypisywanie wartosci z tablicy na trzy sposoby)
 int main() {
@@ -264,7 +264,6 @@ int main() {
 }
 \end{lstlisting}
 
-\newpage
 \begin{lstlisting}
 // Fib.lpp (obliczanie n-tej liczby Fibonacciego na trzy sposoby)
 int fib_rec(int n) {
@@ -310,5 +309,31 @@ int fib_opt(int n) {
     return f2;
 }
 \end{lstlisting}
+
+\newpage
+\section*{Tabelka funkcjonalności}
+\textbf{Na 15 punktów}\\
+\hspace*{0.3cm}01 (trzy typy) \hfill \textbf{+}\\
+\hspace*{0.3cm}02 (literały, arytmetyka, porównania) \hfill \textbf{+}\\
+\hspace*{0.3cm}03 (zmienne, przypisanie) \hfill \textbf{+}\\
+\hspace*{0.3cm}04 (print) \hfill \textbf{+}\\
+\hspace*{0.3cm}05 (while, if) \hfill \textbf{+}\\
+\hspace*{0.3cm}06 (funkcje lub procedury, rekurencja) \hfill \textbf{+}\\
+\hspace*{0.3cm}07 (przez zmienną / przez wartość / in/out) \hfill \textbf{+}\\
+\hspace*{0.3cm}08 (zmienne read-only i pętla for) \hfill \textbf{+}\\
+\textbf{Na 20 punktów}\\
+\hspace*{0.3cm}09 (przesłanianie i statyczne wiązanie) \hfill \textbf{+}\\
+\hspace*{0.3cm}10 (obsługa błędów wykonania) \hfill \textbf{+}\\
+\hspace*{0.3cm}11 (funkcje zwracające wartość) \hfill \textbf{+}\\
+\textbf{Na 30 punktów}\\
+\hspace*{0.3cm}12 (4) (statyczne typowanie) \hfill \textbf{+}\\
+\hspace*{0.3cm}13 (2) (funkcje zagnieżdżone ze statycznym wiązaniem) \hfill \textbf{+}\\
+\hspace*{0.3cm}14 (1) (rekordy/tablice/listy) \hfill \textbf{+}\\
+\hspace*{0.3cm}15 (2) (krotki z przypisaniem)\\
+\hspace*{0.3cm}16 (1) (break, continue) \hfill \textbf{+}\\
+\hspace*{0.3cm}17 (4) (funkcje wyższego rzędu, anonimowe, domknięcia)\\
+\hspace*{0.3cm}18 (3) (generatory)\\\\
+\noindent
+Razem: $20 + 4 + 2 + 1 + 1 = 28$
 
 \end{document}

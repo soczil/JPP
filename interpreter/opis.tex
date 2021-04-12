@@ -4,6 +4,30 @@
 \usepackage[utf8]{inputenc}
 \usepackage[polish]{babel}
 \usepackage{a4wide}
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+  language=Java,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3,
+  escapeinside={\%}{)}
+}
 
 \begin{document}
 
@@ -22,11 +46,11 @@ musi wystąpić.\\
 W Latte++ dodatkowym typem będzie jednowymiarowa tablica.\\ 
 Dodatkami do instrukcji Latte są instrukcje $\textbf{for}$, $\textbf{foreach}$ (tak jak w Javie), 
 $\textbf{break}$, $\textbf{continue}$ oraz $\textbf{print}$. Oprócz tego język Latte++ będzie miał
-słowo kluczowe $\textbf{final}$, dzięki któremu będzie można mieć zmienne tylko do odczytu,
-a intrukcja $\textbf{if}$ zostanie rozszerzona o możliwość dodawania bloków $\textbf{else if}$.\\
+słowo kluczowe $\textbf{final}$, dzięki któremu będzie można mieć zmienne tylko do odczytu.
+Intrukcja $\textbf{if}$ zostanie rozszerzona o możliwość dodawania bloków $\textbf{else if}$.\\
 Zmianą w składni w stosunku do Latte jest to, że instrukcje w pętlach oraz w $\textbf{if}$ muszą
-zawsze znajdować się w środku bloku, czyli nielegalne będzie napisanie $\textbf{if (i < 5) print(i)}$,
-zamiast tego trzeba będzie napisać $\textbf{if (i < 5) \{ print(i) \}}$.\\
+zawsze znajdować się w środku bloku, czyli nielegalne będzie napisanie $\textbf{if (i < 5) print(i);}$,
+zamiast tego trzeba będzie napisać $\textbf{if (i < 5) \{ print(i); \}}$.\\
 Każda zmienna musi być zadeklarowana przed użyciem. Jeśli zmienna nie jest zainicjalizowana, to
 przyjmuje domyślną dla swojego typu wartość: \textbf{int} $\rightarrow$ 0, \textbf{bool} $\rightarrow$ false,
 \textbf{string} $\rightarrow$ $"$$"$.\\
@@ -34,6 +58,7 @@ Zmienne deklarowane wewnątrz bloków przesłaniają zmienne o tych samych nazwa
 Parametry funkcji przekazywane są przez wartość.
 
 \section*{Gramatyka}
+Gramatyka LBNF:\\
 -- Programs --------------------------------------------\\
 
 entrypoints Program ;
@@ -52,6 +77,79 @@ Bool. Type ::= ``bool'' ;
 Void. Type ::= ``void'' ;
 
 Array. Type ::= ``Array'' ``<'' Type ``>'' ;
+\\\\
+\noindent
+-- Statements ------------------------------------------\\
+
+Block. Block ::= ``\{'' [Stmt] ``\}'' ;
+
+separator Stmt ``'' ;
+
+BStmt. Stmt ::= Block ;
+
+Empty. Stmt ::= ``;'' ;
+
+FunDef. FunDef ::= Type Ident ``('' [Arg] ``)'' Block ;
+
+separator nonempty FunDef ``'' ;
+
+Arg. Arg ::= Type Ident ;
+
+separator Arg ``,'' ;
+
+FStmt. Stmt ::= FunDef ;
+
+ArrDecl. Stmt ::= ``Array'' ``<'' Type ``>'' Ident ``='' Expr ``**'' ``['' Expr ``]'' ``;'' ;
+
+ArrAss. Stmt ::= Ident ``['' Expr ``]'' ``='' Expr ``;'' ;
+
+DStmt. Stmt ::= Decl ;
+
+NormalDecl. Decl ::= Type [Item] ``;'' ;
+
+FinalDecl. Decl ::= ``final'' Type [Item] ``;'' ;
+
+NoInit. Item ::= Ident ;
+
+Init. Item ::= Ident ``='' Expr ;
+
+separator nonempty Item ``,'' ;
+
+Ass. Stmt ::= Ident ``='' Expr ``;'' ;
+
+Inc. Stmt ::= Ident ``++'' ``;'' ;
+
+Dec. Stmt ::= Ident ``--'' ``;'' ;
+
+Ret. Stmt ::= ``return'' Expr ``;'' ;
+
+RetV. Stmt ::= ``return'' ``;'' ;
+
+Break. Stmt ::= ``break'' ``;'' ;
+
+Continue. Stmt ::= ``continue'' ``;'' ;
+
+Cond. Stmt ::= ``if'' ``('' Expr ``)'' Block [ElseIf] ;
+
+CondElse. Stmt ::= ``if'' ``('' Expr ``)'' Block [ElseIf] ``else'' Block ;
+
+ElseIf. ElseIf ::= ``else if'' ``('' Expr ``)'' Block ;
+
+separator ElseIf ``'' ;
+
+While. Stmt ::= ``while'' ``('' Expr ``)'' Block ;
+
+For. Stmt ::= ``for'' ``('' ForInit [Expr] ``;'' [Expr] ``)'' Block ;
+
+ForInitExpr. ForInit ::= [Expr] ``;'' ;
+
+ForInitVar. ForInit ::= Decl ;
+
+ForIn. Stmt ::= ``for'' ``('' Ident ``:'' Ident ``)'' Block ; 
+
+EStmt. Stmt ::= Expr ``;'' ;
+
+Print. Stmt ::= ``print'' ``('' Expr ``)'' ``;'' ;
 \\\\
 \noindent
 -- Expressions ---------------------------------------\\
@@ -112,7 +210,7 @@ Eq. RelOp ::= ``=='' ;
 Neq. RelOp ::= ``!='' ;
 \\\\
 \noindent
--- Comments -------------------------------------------\\
+-- Comments --------------------------------------------\\
 
 comment ``\#'' ;
 
@@ -120,5 +218,97 @@ comment ``//'' ;
 
 comment ``/*'' ``*/'' ;
 
+\section*{Przykłady}
+\begin{lstlisting}
+// PrintArrayElements.lpp (wypisywanie wartosci z tablicy na trzy sposoby)
+int main() {
+    Array<int> xs = 5 ** [1]; // utworzenie tablicy postaci [1, 1, 1, 1, 1]
+    for (x : xs) {
+        print(x);
+    }
+
+    for (int i = 0; i < 5; i++) {
+        print(xs[i]);
+    }
+
+    int i = 0;
+    while (i < 5) {
+        print(xs[i]);
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\begin{lstlisting}
+// PrintEvenNumbers.lpp
+int main() {
+    bool isEven(int x) {
+        if (x % 2 == 0) {
+            return true;
+        } else {
+            return false;
+        } 
+    }
+
+    Array<int> numbers = 10 ** [0];
+    for (int i = 1; i <= 10; i++) {
+        numbers[i - 1] = i;
+    }
+
+    for (x : numbers) {
+        if (isEven(x)) {
+            print(x);
+        }
+    }
+    return 0;
+}
+\end{lstlisting}
+
+\newpage
+\begin{lstlisting}
+// Fib.lpp (obliczanie n-tej liczby Fibonacciego na trzy sposoby)
+int fib_rec(int n) {
+    if (n <= 1) {
+        return n;
+    }
+    return fib_rec(n - 1) + fib_rec(n - 2);
+}
+
+int main() {
+    int n = 10;
+    print(fib_rec(n));
+    print(fib_arr(n));
+    print(fib_opt(n));
+    return 0;
+}
+
+int fib_arr(int n) {
+    Array<int> f = (n + 2) ** [0];
+    int i = 2;
+
+    f[1] = 1;
+    while (i <= n) {
+        f[i] = f[i - 1] + f[i - 2];
+        i++;
+    }
+
+    return f[n];
+}
+
+int fib_opt(int n) {
+    int f1 = 0, f2 = 1, res;
+    if (n == 0) {
+        return f1;
+    }
+
+    for (int i = 2; i <= n; i++) {
+        res = f1 + f2;
+        f1 = f2;
+        f2 = res;
+    }
+
+    return f2;
+}
+\end{lstlisting}
 
 \end{document}

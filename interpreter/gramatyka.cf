@@ -20,6 +20,8 @@ Array. Type ::= "Array" "<" Type ">" ;
 
 Block. Block ::= "{" [Stmt] "}" ;
 
+separator Stmt "" ;
+
 BStmt. Stmt ::= Block ;
 
 Empty. Stmt ::= ";" ;
@@ -34,7 +36,9 @@ separator Arg "," ;
 
 FStmt. Stmt ::= FunDef ;
 
-ArrDecl. Stmt ::= "Array" "<" Type ">" Ident = Expr "**" "[" Expr "]" ;
+ArrDecl. Stmt ::= "Array" "<" Type ">" Ident "=" Expr "**" "[" Expr "]" ";" ;
+
+ArrAss. Stmt ::= Ident "[" Expr "]" "=" Expr ";" ;
 
 DStmt. Stmt ::= Decl ;
 
@@ -66,11 +70,11 @@ Cond. Stmt ::= "if" "(" Expr ")" Block [ElseIf] ;
 
 CondElse. Stmt ::= "if" "(" Expr ")" Block [ElseIf] "else" Block ;
 
-Elif. ElseIf ::= "else if" "(" Expr ")" Block ;
+ElseIf. ElseIf ::= "else if" "(" Expr ")" Block ;
 
-terminator ElseIf "" ;
+separator ElseIf "" ;
 
-While. Stmt ::= "while" "(" Expr ")" Block;
+While. Stmt ::= "while" "(" Expr ")" Block ;
 
 For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Block ;
 
@@ -82,7 +86,7 @@ ForIn. Stmt ::= "for" "(" Ident ":" Ident ")" Block ;
 
 EStmt. Stmt ::= Expr ";" ;
 
-Print. Stmt ::= "print" "(" Expr ")" ;
+Print. Stmt ::= "print" "(" Expr ")" ";" ;
 
 -- Expressions ----------------------------------------
 
@@ -96,6 +100,8 @@ ELitFalse. Expr6 ::= "false" ;
 
 EApp. Expr6 ::= Ident "(" [Expr] ")" ;
 
+ArrRead. Expr6 ::= Ident "[" Expr "]" ;
+
 EString. Expr6 ::= String ;
 
 Neg. Expr5 ::= "-" Expr6 ;
@@ -105,6 +111,10 @@ Not. Expr5 ::= "!" Expr6 ;
 EMul. Expr4 ::= Expr4 MulOp Expr5 ;
 
 EAdd. Expr3 ::= Expr3 AddOp Expr4 ;
+
+EInc. Expr3 ::= Expr3 "++" ;
+
+EDec. Expr3 ::= Expr3 "--" ;
 
 ERel. Expr2 ::= Expr2 RelOp Expr3 ;
 

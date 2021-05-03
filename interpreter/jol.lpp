@@ -1,0 +1,4 @@
+int main() {
+    print("ej jol lets go");
+    return 0;
+}

@@ -2,6 +2,11 @@ int main() {
     print("ej jol lets go");
     print("o shit dziala");
     print(true);
-    print(5 + 7);
+    print(10 - 5);
+    print(23 * 3);
+    print(30 / 10);
+    // print(8 % 0);
+    // print(20 / 0);
+    print(8 != 8);
     return 0;
 }

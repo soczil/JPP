@@ -1,4 +1,7 @@
 int main() {
     print("ej jol lets go");
+    print("o shit dziala");
+    print(true);
+    print(5 + 7);
     return 0;
 }

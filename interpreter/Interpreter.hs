@@ -13,7 +13,6 @@ type LPPReader = ReaderT Env IO
 type LPPMonad = StateT LPPStore LPPReader
 
 data Value = VInt Integer | VString String | VBool Bool
-    deriving (Eq, Show)
 
 newStore :: LPPStore
 newStore = M.empty 
@@ -24,31 +23,34 @@ newEnv = M.empty
 valueToString :: Value -> String
 valueToString (VInt x) = show x
 valueToString (VString s) = s
+valueToString (VBool x) = show x
 
 execStmt :: Stmt -> LPPMonad ()
 execStmt Empty = return ()
 execStmt (Print e) = do
     val <- evalExpr e
     liftIO $ putStrLn $ valueToString val
+execStmt (Ret e) = do
+    val <- evalExpr e
+    liftIO $ putStrLn ("jol " ++ valueToString val)
+
+evalOp :: (Integer -> Integer -> Integer) -> Integer -> Integer -> LPPMonad Value
+evalOp (+) val1 val2 = return $ VInt (val1 + val2)
 
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (ELitInt x) = return $ VInt x
 evalExpr ELitTrue = return $ VBool True
 evalExpr ELitFalse = return $ VBool False
 evalExpr (EString s) = return $ VString s
+evalExpr (EAdd e1 addOp e2) = do
+    VInt val1 <- evalExpr e1
+    VInt val2 <- evalExpr e2
+    evalOp (+) val1 val2
 
--- jol :: Expr -> LPPMonad String
--- jol e = do
---     val <- evalExpr e
---     return $ valueToString val
-
--- jol2 :: Expr -> LPPMonad ()
--- jol2 e = do
---     val <- evalExpr e
---     liftIO $ print val
 
 execBlock :: Block -> LPPMonad ()
-execBlock (Block (x:xs)) = execStmt x
+execBlock (Block []) = return()
+execBlock (Block stmts) = mapM_ execStmt stmts
 
 execFun :: FunDef -> LPPMonad ()
 execFun (FunDef t ident [] block) = execBlock block

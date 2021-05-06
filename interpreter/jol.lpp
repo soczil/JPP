@@ -1,19 +1,54 @@
 int main() {
-    print("ej jol lets go");
-    print("o shit dziala");
-    print(true);
-    print(10 - 15);
-    print(23 * 3);
-    print(30 / 10);
+    // print("ej jol lets go");
+    // print("o shit dziala");
+    // print(true);
+    // print(10 - 15);
+    // print(23 * 3);
+    // print(30 / 10);
     // print(8 % 0);
     // print(20 / 0);
-    print("aa" == "aa");
-    print(true && true);
-    print(true && false);
-    print(true || false);
-    print(-2);
-    print(!(5 == 5));
+    // print("aa" == "aa");
+    // print(true && true);
+    // print(true && false);
+    // print(true || false);
+    // print(-2);
+    // print(!(5 == 5));
+    // int x, y;
     // x = 123;
     // print(x);
+    // print(y);
+    // z = 5;
+    // int x;
+
+
+    // string a = "jol", b = "elo", c;
+    // c = "aaaaa";
+    // print(a);
+    // print(b);
+    // print(c);
+    // int d = 5;
+    // print(d);
+    // d++;
+    // print(d);
+    // d--;
+    // print(d);
+    // int e = 4;
+    // if (e == 2) {
+    //     print("joljoljol");
+    // } elif (e == 3) {
+    //     print("elo");
+    // } elif (e == 2) {
+    //     print("elfred");
+    // } else {
+    //     print("ej jol lets go");
+    // }
+
+
+    int x = 0;
+    while (x < 10) {
+        print(x);
+        x++;
+    }
+    
     return 0;
 }

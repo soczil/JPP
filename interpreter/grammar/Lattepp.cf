@@ -66,13 +66,13 @@ Break. Stmt ::= "break" ";" ;
 
 Continue. Stmt ::= "continue" ";" ;
 
-Cond. Stmt ::= "if" "(" Expr ")" Block [ElseIf] ;
+Cond. Stmt ::= "if" "(" Expr ")" Block [Elif] ;
 
-CondElse. Stmt ::= "if" "(" Expr ")" Block [ElseIf] "else" Block ;
+CondElse. Stmt ::= "if" "(" Expr ")" Block [Elif] "else" Block ;
 
-ElseIf. ElseIf ::= "else if" "(" Expr ")" Block ;
+Elif. Elif ::= "elif" "(" Expr ")" Block ;
 
-separator ElseIf "" ;
+separator Elif "" ;
 
 While. Stmt ::= "while" "(" Expr ")" Block ;
 

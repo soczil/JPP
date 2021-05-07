@@ -120,9 +120,9 @@ EMul. Expr4 ::= Expr4 MulOp Expr5 ;
 
 EAdd. Expr3 ::= Expr3 AddOp Expr4 ;
 
-EInc. Expr3 ::= Expr3 "++" ;
+EInc. Expr3 ::= Ident "++" ;
 
-EDec. Expr3 ::= Expr3 "--" ;
+EDec. Expr3 ::= Ident "--" ;
 
 ERel. Expr2 ::= Expr2 RelOp Expr3 ;
 

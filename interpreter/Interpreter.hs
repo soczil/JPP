@@ -17,7 +17,11 @@ type LPPExcept = ExceptT LPPError IO
 type LPPReader = ReaderT Env LPPExcept
 type LPPMonad = StateT LPPState LPPReader
 
-data Value = VInt Integer | VString String | VBool Bool | VArray [Value]
+data Value = VInt Integer 
+           | VString String 
+           | VBool Bool 
+           | VArray [Value] 
+           | VVoid
     deriving (Ord, Eq)
 
 data LPPError =  DivisionByZero 
@@ -118,8 +122,8 @@ execArrItem (ArrInit id e1 e2) = do
     varToEnv id
     updateVarValue id (VArray arr)
 
-updateArray :: [Value] -> Integer -> Value -> LPPMonad Value
-updateArray arr idx val = do
+updateArr :: [Value] -> Integer -> Value -> LPPMonad Value
+updateArr arr idx val = do
     let (updatedArr, updated, _) = foldl (\(newArr, updated, currIdx) x -> 
             if currIdx == idx
                 then (newArr ++ [val], True, currIdx + 1)
@@ -136,7 +140,7 @@ execStmt (ArrAss id e1 e2) = do
     VInt idx <- evalExpr e1
     val <- evalExpr e2
     VArray arr <- getVarValue id
-    updatedArr <- updateArray arr idx val
+    updatedArr <- updateArr arr idx val
     updateVarValue id updatedArr
 execStmt (DStmt decl) =
     case decl of
@@ -206,11 +210,25 @@ evalRelOp Geq val1 val2 = return $ VBool (val1 >= val2)
 evalRelOp Eq val1 val2 = return $ VBool (val1 == val2)
 evalRelOp Neq val1 val2 = return $ VBool (val1 /= val2)
 
+getArrElem :: [Value] -> Integer -> LPPMonad Value
+getArrElem arr idx = getArrElemAux arr idx 0
+    where
+        getArrElemAux :: [Value] -> Integer -> Integer -> LPPMonad Value
+        getArrElemAux [] _ _ = throwError IndexOutOfBounds
+        getArrElemAux (x:xs) idx currIdx = 
+            if idx == currIdx
+                then return x
+                else getArrElemAux xs idx (currIdx + 1)
+
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (Evar id) = getVarValue id 
 evalExpr (ELitInt x) = return $ VInt x
 evalExpr ELitTrue = return $ VBool True
 evalExpr ELitFalse = return $ VBool False
+evalExpr (ArrRead id e) = do
+    VInt idx <- evalExpr e
+    VArray arr <- getVarValue id
+    getArrElem arr idx
 evalExpr (EString s) = return $ VString s
 evalExpr (Neg e) = do
     VInt val <- evalExpr e
@@ -218,14 +236,22 @@ evalExpr (Neg e) = do
 evalExpr (Not e) = do
     VBool val <- evalExpr e
     return $ VBool (not val)
-evalExpr (EAdd e1 addOp e2) = do
-    VInt val1 <- evalExpr e1
-    VInt val2 <- evalExpr e2
-    evalAddOp addOp val1 val2
 evalExpr (EMul e1 mulOp e2) = do
     VInt val1 <- evalExpr e1
     VInt val2 <- evalExpr e2
     evalMulOp mulOp val1 val2
+evalExpr (EAdd e1 addOp e2) = do
+    VInt val1 <- evalExpr e1
+    VInt val2 <- evalExpr e2
+    evalAddOp addOp val1 val2
+evalExpr (EInc id) = do
+    VInt val <- getVarValue id
+    updateVarValue id $ VInt (val + 1)
+    return $ VInt val
+evalExpr (EDec id) = do
+    VInt val <- getVarValue id
+    updateVarValue id $ VInt (val - 1)
+    return $ VInt val
 evalExpr (ERel e1 relOp e2) = do
     val1 <- evalExpr e1
     val2 <- evalExpr e2

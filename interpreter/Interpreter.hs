@@ -4,7 +4,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Except
 import Lattepp.Abs
-import Data.Map as M
+import qualified Data.Map as M
+import Data.List (intercalate)
 
 type Var = String 
 type Loc = Int
@@ -16,10 +17,16 @@ type LPPExcept = ExceptT LPPError IO
 type LPPReader = ReaderT Env LPPExcept
 type LPPMonad = StateT LPPState LPPReader
 
-data Value = VInt Integer | VString String | VBool Bool
+data Value = VInt Integer | VString String | VBool Bool | VArray [Value]
     deriving (Ord, Eq)
 
-data LPPError =  DivisionByZero | ModuloByZero | VarAlreadyDeclared | VarNotDeclared | UnknownError deriving Show
+data LPPError =  DivisionByZero 
+               | ModuloByZero 
+               | VarAlreadyDeclared 
+               | VarNotDeclared 
+               | IndexOutOfBounds 
+               | UnknownError 
+    deriving Show
 
 emptyState :: LPPState
 emptyState = (M.empty, M.empty, 0, False) 
@@ -31,6 +38,7 @@ valueToString :: Value -> String
 valueToString (VInt x) = show x
 valueToString (VString s) = s
 valueToString (VBool x) = show x
+valueToString (VArray a) = "[" ++ intercalate "," (foldl (\acc x -> acc ++ [valueToString x]) [] a) ++ "]"
 
 defaultValue :: Type -> Value
 defaultValue Int = VInt 0
@@ -99,9 +107,37 @@ execElif (Elif e block) = do
         execBlock block
         setElseFlag False
 
+execArrItem :: ArrItem -> LPPMonad ()
+execArrItem (ArrNoInit id) = do
+    varToEnv id
+    updateVarValue id $ VArray []
+execArrItem (ArrInit id e1 e2) = do
+    VInt len <- evalExpr e1
+    val <- evalExpr e2
+    let arr = take (fromInteger len) [val | x <- [0..]]
+    varToEnv id
+    updateVarValue id (VArray arr)
+
+updateArray :: [Value] -> Integer -> Value -> LPPMonad Value
+updateArray arr idx val = do
+    let (updatedArr, updated, _) = foldl (\(newArr, updated, currIdx) x -> 
+            if currIdx == idx
+                then (newArr ++ [val], True, currIdx + 1)
+                else (newArr ++ [x], updated, currIdx + 1)
+                ) ([], False, 0) arr
+    unless updated $ throwError IndexOutOfBounds
+    return $ VArray updatedArr
+
 execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlock block
 execStmt Empty = return ()
+execStmt (ArrDecl t itms) = mapM_ execArrItem itms
+execStmt (ArrAss id e1 e2) = do
+    VInt idx <- evalExpr e1
+    val <- evalExpr e2
+    VArray arr <- getVarValue id
+    updatedArr <- updateArray arr idx val
+    updateVarValue id updatedArr
 execStmt (DStmt decl) =
     case decl of
         (NormalDecl t itms) -> mapM_ (execItem t) itms

@@ -36,7 +36,15 @@ separator Arg "," ;
 
 FStmt. Stmt ::= FunDef ;
 
-ArrDecl. Stmt ::= "Array" "<" Type ">" Ident "=" Expr "**" "[" Expr "]" ";" ;
+-- ArrDecl. Stmt ::= "Array" "<" Type ">" Ident "=" Expr "**" "[" Expr "]" ";" ;
+
+ArrDecl. Stmt ::= "Array" "<" Type ">" [ArrItem] ";" ;
+
+ArrNoInit. ArrItem ::= Ident ;
+
+ArrInit. ArrItem ::= Ident "=" Expr "**" "[" Expr "]" ;
+
+separator nonempty ArrItem "," ;
 
 ArrAss. Stmt ::= Ident "[" Expr "]" "=" Expr ";" ;
 

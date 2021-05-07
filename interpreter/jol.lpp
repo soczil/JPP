@@ -44,11 +44,22 @@ int main() {
     // }
 
 
-    int x = 0;
+    int x = 0, y = 0;
     while (x < 10) {
         print(x);
         x++;
+        y = y + x;
     }
-    
+    print(y);
+
+    Array<int> a, b;
+    Array<string> c = 20 ** ["jol"];
+    print(c);
+    a = c;
+    print(a);
+    a[0] = "elo";
+    a[19] = "melo";
+    print(a);
+
     return 0;
 }

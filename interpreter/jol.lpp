@@ -1,3 +1,9 @@
+void elo() {
+    print("aaaaaaaaaaaaaaaaaaaaa");
+    int x = 981029381;
+    print(x);
+}
+
 int main() {
     // print("ej jol lets go");
     // print("o shit dziala");
@@ -44,25 +50,42 @@ int main() {
     // }
 
 
-    int x = 0, y = 0;
-    while (x < 10) {
-        print(x);
-        x++;
-        y = y + x;
-    }
-    print(y);
+    // int x = 0, y = 0;
+    // while (x < 10) {
+    //     print(x);
+    //     x++;
+    //     y = y + x;
+    // }
+    // print(y);
 
-    Array<int> a, b;
-    Array<string> c = 20 ** ["jol"];
-    print(c);
-    a = c;
-    print(a);
-    a[0] = "elo";
-    a[19] = "melo";
-    print(a);
-    print(a[0]);
-    print(a[19]);
-    print(a[1]);
-    print(x++);
+    // Array<int> a, b;
+    // Array<string> c = 20 ** ["jol"];
+    // print(c);
+    // a = c;
+    // print(a);
+    // a[0] = "elo";
+    // a[19] = "melo";
+    // print(a);
+    // print(a[0]);
+    // print(a[19]);
+    // print(a[1]);
+    // print(x++);
+
+    int x = 5;
+
+    if (x == 5) {
+        print(x);
+        x = 9;
+        print(x);
+        int x = 7;
+        print(x);
+        int y = 2;
+        print(y);
+    }
+    print(x);
+
+    elo();
+    print(x);
+
     return 0;
 }

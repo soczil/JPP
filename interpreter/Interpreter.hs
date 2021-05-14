@@ -20,7 +20,8 @@ type LPPMonad = StateT LPPState LPPReader
 data Value = VInt Integer 
            | VString String 
            | VBool Bool 
-           | VArray [Value] 
+           | VArray [Value]
+           | VFun (Type, [Arg], Block)
            | VVoid
     deriving (Ord, Eq)
 
@@ -33,7 +34,14 @@ data LPPError =  DivisionByZero
     deriving Show
 
 emptyState :: LPPState
-emptyState = (M.empty, M.empty, 0, False) 
+emptyState = (M.empty, M.empty, 0, False)
+
+funToState :: LPPState -> FunDef -> LPPState
+funToState (store, env, loc, elseFlag) (FunDef t id args block) =
+    (M.insert loc (VFun (t, args, block)) store,
+    M.insert id loc env,
+    loc + 1,
+    elseFlag)
 
 newEnv :: Env
 newEnv = M.empty
@@ -52,11 +60,8 @@ defaultValue Str = VString ""
 varToEnv :: Ident -> LPPMonad ()
 varToEnv id = do
     (store, env, loc, doElse) <- get
-    case M.lookup id env of
-        Just _ -> throwError VarAlreadyDeclared
-        Nothing -> do
-            let updatedEnv = M.insert id loc env
-            put (store, updatedEnv, loc + 1, doElse)
+    let updatedEnv = M.insert id loc env
+    put (store, updatedEnv, loc + 1, doElse)
 
 getVarLoc :: Ident -> LPPMonad Loc
 getVarLoc id = do
@@ -90,8 +95,10 @@ execItem t (Init id e) = do
     updateVarValue id val 
 
 execBlock :: Block -> LPPMonad ()
-execBlock (Block []) = return()
-execBlock (Block stmts) = mapM_ execStmt stmts
+execBlock (Block stmts) = do
+    oldEnv <- getEnv
+    mapM_ execStmt stmts
+    putEnv oldEnv
 
 getElseFlag :: LPPMonad Bool
 getElseFlag = do
@@ -132,9 +139,20 @@ updateArr arr idx val = do
     unless updated $ throwError IndexOutOfBounds
     return $ VArray updatedArr
 
+getEnv :: LPPMonad LPPEnv
+getEnv = do
+    (_, env, _, _) <- get
+    return env
+
+putEnv :: LPPEnv -> LPPMonad ()
+putEnv env = do
+    (store, _, loc, elseFlag) <- get
+    put (store, env, loc, elseFlag)
+
 execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlock block
 execStmt Empty = return ()
+execStmt (FStmt fundef) = undefined 
 execStmt (ArrDecl t itms) = mapM_ execArrItem itms
 execStmt (ArrAss id e1 e2) = do
     VInt idx <- evalExpr e1
@@ -180,6 +198,9 @@ execStmt (While e block) = do
     when val $ do
         execBlock block
         execStmt (While e block)
+execStmt (EStmt expr) = do
+    evalExpr expr
+    return ()
 execStmt (Print e) = do
     val <- evalExpr e
     liftIO $ putStrLn $ valueToString val
@@ -220,11 +241,28 @@ getArrElem arr idx = getArrElemAux arr idx 0
                 then return x
                 else getArrElemAux xs idx (currIdx + 1)
 
+argToState :: (Arg, Value) -> LPPMonad ()
+argToState (Arg _ id, val) = do
+    varToEnv id
+    updateVarValue id val
+
+execFun :: Block -> LPPMonad ()
+execFun (Block stmts) = mapM_ execStmt stmts
+
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (Evar id) = getVarValue id 
 evalExpr (ELitInt x) = return $ VInt x
 evalExpr ELitTrue = return $ VBool True
 evalExpr ELitFalse = return $ VBool False
+evalExpr (EApp id exprs) = do
+    vals <- mapM evalExpr exprs
+    VFun (t, args, block) <- getVarValue id
+    let argsAndVals = zip args vals
+    oldEnv <- getEnv
+    mapM_ argToState argsAndVals
+    execFun block
+    putEnv oldEnv
+    return VVoid
 evalExpr (ArrRead id e) = do
     VInt idx <- evalExpr e
     VArray arr <- getVarValue id
@@ -265,12 +303,15 @@ evalExpr (EOr e1 e2) = do
     VBool val2 <- evalExpr e2
     return $ VBool (val1 || val2)
 
-execFun :: FunDef -> LPPMonad ()
-execFun (FunDef _ _ _ block) = execBlock block
+execMain :: LPPMonad ()
+execMain = do
+    VFun (_, _, block) <- getVarValue $ Ident "main"
+    execBlock block
 
 interpret :: Program -> IO (String, Int)
 interpret (Program fundefs) = do
-    let runS = runStateT (execFun $ head fundefs) emptyState
+    let newState = foldl funToState emptyState fundefs
+    let runS = runStateT execMain newState
     let runR = runReaderT runS newEnv
     result <- runExceptT runR
     case result of

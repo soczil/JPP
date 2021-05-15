@@ -6,13 +6,14 @@ import Control.Monad.Except
 import Lattepp.Abs
 import qualified Data.Map as M
 import Data.List (intercalate)
+import Data.Maybe (isNothing)
 
 type Var = String 
 type Loc = Int
 type Env = M.Map Var Loc
 type LPPEnv = M.Map Ident Loc
 type LPPStore = M.Map Loc Value
-type LPPState = (LPPStore, LPPEnv, Loc, Bool)
+type LPPState = (LPPStore, LPPEnv, Loc, Bool, Maybe Value)
 type LPPExcept = ExceptT LPPError IO
 type LPPReader = ReaderT Env LPPExcept
 type LPPMonad = StateT LPPState LPPReader
@@ -34,14 +35,15 @@ data LPPError =  DivisionByZero
     deriving Show
 
 emptyState :: LPPState
-emptyState = (M.empty, M.empty, 0, False)
+emptyState = (M.empty, M.empty, 0, False, Nothing)
 
 funToState :: LPPState -> FunDef -> LPPState
-funToState (store, env, loc, elseFlag) (FunDef t id args block) =
+funToState (store, env, loc, elseFlag, retVal) (FunDef t id args block) =
     (M.insert loc (VFun (t, args, block)) store,
     M.insert id loc env,
     loc + 1,
-    elseFlag)
+    elseFlag,
+    retVal)
 
 newEnv :: Env
 newEnv = M.empty
@@ -59,13 +61,13 @@ defaultValue Str = VString ""
 
 varToEnv :: Ident -> LPPMonad ()
 varToEnv id = do
-    (store, env, loc, doElse) <- get
+    (store, env, loc, doElse, retVal) <- get
     let updatedEnv = M.insert id loc env
-    put (store, updatedEnv, loc + 1, doElse)
+    put (store, updatedEnv, loc + 1, doElse, retVal)
 
 getVarLoc :: Ident -> LPPMonad Loc
 getVarLoc id = do
-    (_, env, _, _) <- get
+    (_, env, _, _, _) <- get
     case M.lookup id env of
         Just loc -> return loc
         Nothing -> throwError VarNotDeclared
@@ -73,7 +75,7 @@ getVarLoc id = do
 getVarValue :: Ident -> LPPMonad Value
 getVarValue id = do
     loc <- getVarLoc id
-    (store, _, _, _) <- get
+    (store, _, _, _, _) <- get
     case M.lookup loc store of
         Just val -> return val
         Nothing -> throwError UnknownError
@@ -81,9 +83,9 @@ getVarValue id = do
 updateVarValue :: Ident -> Value -> LPPMonad ()
 updateVarValue id val = do
     varLoc <- getVarLoc id
-    (store, env, loc, doElse) <- get
+    (store, env, loc, doElse, retVal) <- get
     let updatedStore = M.insert varLoc val store
-    put (updatedStore, env, loc, doElse)
+    put (updatedStore, env, loc, doElse, retVal)
 
 execItem :: Type -> Item -> LPPMonad ()
 execItem t (NoInit id) = do
@@ -98,17 +100,17 @@ execBlock :: Block -> LPPMonad ()
 execBlock (Block stmts) = do
     oldEnv <- getEnv
     mapM_ execStmt stmts
-    putEnv oldEnv
+    setEnv oldEnv
 
 getElseFlag :: LPPMonad Bool
 getElseFlag = do
-    (_, _, _, doElse) <- get 
+    (_, _, _, doElse, _) <- get 
     return doElse
 
 setElseFlag :: Bool -> LPPMonad ()
 setElseFlag val = do
-    (store, env, loc, _) <- get
-    put (store, env, loc, val)
+    (store, env, loc, _, retVal) <- get
+    put (store, env, loc, val, retVal)
 
 execElif :: Elif -> LPPMonad ()
 execElif (Elif e block) = do
@@ -141,13 +143,23 @@ updateArr arr idx val = do
 
 getEnv :: LPPMonad LPPEnv
 getEnv = do
-    (_, env, _, _) <- get
+    (_, env, _, _, _) <- get
     return env
 
-putEnv :: LPPEnv -> LPPMonad ()
-putEnv env = do
-    (store, _, loc, elseFlag) <- get
-    put (store, env, loc, elseFlag)
+setEnv :: LPPEnv -> LPPMonad ()
+setEnv env = do
+    (store, _, loc, elseFlag, retVal) <- get
+    put (store, env, loc, elseFlag, retVal)
+
+getRetVal :: LPPMonad (Maybe Value)
+getRetVal = do
+    (_, _, _, _, retVal) <- get
+    return retVal
+
+setRetVal :: Maybe Value -> LPPMonad ()
+setRetVal retVal = do
+    (store, env, loc, elseFlag, _) <- get
+    put (store, env, loc, elseFlag, retVal)
 
 execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlock block
@@ -173,6 +185,10 @@ execStmt (Inc id) = do
 execStmt (Dec id) = do
     VInt val <- getVarValue id
     updateVarValue id $ VInt (val - 1)
+execStmt (Ret e) = do
+    val <- evalExpr e
+    setRetVal $ Just val
+execStmt RetV = setRetVal $ Just VVoid
 execStmt (Cond e block elifs) = do
     VBool val <- evalExpr e
     if val 
@@ -204,9 +220,6 @@ execStmt (EStmt expr) = do
 execStmt (Print e) = do
     val <- evalExpr e
     liftIO $ putStrLn $ valueToString val
-execStmt (Ret e) = do
-    val <- evalExpr e
-    liftIO $ putStrLn ("jol " ++ valueToString val)
 
 evalAddOp :: AddOp -> Integer -> Integer -> LPPMonad Value
 evalAddOp Plus val1 val2 = return $ VInt (val1 + val2)
@@ -246,8 +259,13 @@ argToState (Arg _ id, val) = do
     varToEnv id
     updateVarValue id val
 
+execBlockStmt :: Stmt -> LPPMonad ()
+execBlockStmt stmt = do
+    retVal <- getRetVal
+    when (isNothing retVal) $ execStmt stmt
+
 execFun :: Block -> LPPMonad ()
-execFun (Block stmts) = mapM_ execStmt stmts
+execFun (Block stmts) = mapM_ execBlockStmt stmts
 
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (Evar id) = getVarValue id 
@@ -261,8 +279,13 @@ evalExpr (EApp id exprs) = do
     oldEnv <- getEnv
     mapM_ argToState argsAndVals
     execFun block
-    putEnv oldEnv
-    return VVoid
+    setEnv oldEnv
+    retVal <- getRetVal
+    case retVal of
+        Just val -> do
+            setRetVal Nothing
+            return val
+        Nothing -> return VVoid
 evalExpr (ArrRead id e) = do
     VInt idx <- evalExpr e
     VArray arr <- getVarValue id
@@ -306,7 +329,7 @@ evalExpr (EOr e1 e2) = do
 execMain :: LPPMonad ()
 execMain = do
     VFun (_, _, block) <- getVarValue $ Ident "main"
-    execBlock block
+    execFun block
 
 interpret :: Program -> IO (String, Int)
 interpret (Program fundefs) = do

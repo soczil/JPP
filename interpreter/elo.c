@@ -15,4 +15,5 @@ int main(void) {
     // print("y = %d\n", y);
 
     return 0;
+    printf("eloo");
 }

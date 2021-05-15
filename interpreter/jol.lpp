@@ -1,7 +1,8 @@
-void elo() {
+int elo() {
     print("aaaaaaaaaaaaaaaaaaaaa");
     int x = 981029381;
     print(x);
+    return 23;
 }
 
 int main() {
@@ -84,8 +85,15 @@ int main() {
     }
     print(x);
 
-    elo();
+    print(elo());
     print(x);
+
+    int i = 0;
+    while (i < 10) {
+        i++;
+        int y = 2;
+    }
+    print(i);
 
     return 0;
 }

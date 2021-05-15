@@ -84,7 +84,7 @@ separator Elif "" ;
 
 While. Stmt ::= "while" "(" Expr ")" Block ;
 
-For. Stmt ::= "for" "(" ForInit [Expr] ";" [Expr] ")" Block ;
+For. Stmt ::= "for" "(" ForInit Expr ";" [Expr] ")" Block ;
 
 ForInitExpr. ForInit ::= [Expr] ";" ;
 

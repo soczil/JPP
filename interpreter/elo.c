@@ -14,6 +14,13 @@ int main(void) {
     printf("x = %d\n", x);
     // print("y = %d\n", y);
 
+    const int y = 10;
+    printf("%d\n", y);
+
+    for (int i = 0; i < 5; i++) {
+        printf("jol %d\n", i);
+    }
+
     return 0;
     printf("eloo");
 }

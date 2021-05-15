@@ -91,9 +91,20 @@ int main() {
     int i = 0;
     while (i < 10) {
         i++;
+        print(i);
         int y = 2;
     }
     print(i);
 
+    for (int j = 0; j < 10; j++) {
+        print(j);
+    }
+
+    if (i == 10) {
+        return;
+        print("odfjsofjswdof");
+    }
+    print("jol");
+    
     return 0;
 }

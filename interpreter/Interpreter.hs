@@ -91,15 +91,22 @@ execItem :: Type -> Item -> LPPMonad ()
 execItem t (NoInit id) = do
     varToEnv id
     updateVarValue id $ defaultValue t
-execItem t (Init id e) = do
+execItem _ (Init id e) = do
     val <- evalExpr e
     varToEnv id
-    updateVarValue id val 
+    updateVarValue id val
 
 execBlock :: Block -> LPPMonad ()
-execBlock (Block stmts) = do
+execBlock (Block stmts) = mapM_ execBlockStmt stmts
+    where
+        execBlockStmt stmt = do
+        retVal <- getRetVal
+        when (isNothing retVal) $ execStmt stmt
+
+execBlockNewEnv :: Block -> LPPMonad ()
+execBlockNewEnv block = do
     oldEnv <- getEnv
-    mapM_ execStmt stmts
+    execBlock block
     setEnv oldEnv
 
 getElseFlag :: LPPMonad Bool
@@ -117,7 +124,7 @@ execElif (Elif e block) = do
     doElse <- getElseFlag
     VBool val <- evalExpr e
     when (doElse && val) $ do
-        execBlock block
+        execBlockNewEnv block
         setElseFlag False
 
 execArrItem :: ArrItem -> LPPMonad ()
@@ -161,8 +168,20 @@ setRetVal retVal = do
     (store, env, loc, elseFlag, _) <- get
     put (store, env, loc, elseFlag, retVal)
 
+execForInit :: ForInit -> LPPMonad ()
+execForInit (ForInitExpr exprs) = mapM_ evalExpr exprs
+execForInit (ForInitVar decl) = execStmt (DStmt decl)
+
+execLoop :: Expr -> Block -> [Expr] -> LPPMonad ()
+execLoop e1 block exprs = do
+    VBool val1 <- evalExpr e1
+    when val1 $ do
+        execBlock block
+        mapM_ evalExpr exprs
+        execLoop e1 block exprs
+
 execStmt :: Stmt -> LPPMonad ()
-execStmt (BStmt block) = execBlock block
+execStmt (BStmt block) = execBlockNewEnv block
 execStmt Empty = return ()
 execStmt (FStmt fundef) = undefined 
 execStmt (ArrDecl t itms) = mapM_ execArrItem itms
@@ -192,7 +211,7 @@ execStmt RetV = setRetVal $ Just VVoid
 execStmt (Cond e block elifs) = do
     VBool val <- evalExpr e
     if val 
-        then execBlock block
+        then execBlockNewEnv block
         else do
             oldFlag <- getElseFlag
             setElseFlag True
@@ -201,19 +220,23 @@ execStmt (Cond e block elifs) = do
 execStmt (CondElse e block1 elifs block2) = do
     VBool val <- evalExpr e
     if val
-        then execBlock block1
+        then execBlockNewEnv block1
         else do
             oldFlag <- getElseFlag
             setElseFlag True
             mapM_ execElif elifs
             doElse <- getElseFlag
-            when doElse $ execBlock block2
+            when doElse $ execBlockNewEnv block2
             setElseFlag oldFlag
 execStmt (While e block) = do
-    VBool val <- evalExpr e
-    when val $ do
-        execBlock block
-        execStmt (While e block)
+    oldEnv <- getEnv
+    execLoop e block []
+    setEnv oldEnv
+execStmt (For init e1 e2 block) = do
+    oldEnv <- getEnv
+    execForInit init
+    execLoop e1 block e2
+    setEnv oldEnv
 execStmt (EStmt expr) = do
     evalExpr expr
     return ()
@@ -259,14 +282,6 @@ argToState (Arg _ id, val) = do
     varToEnv id
     updateVarValue id val
 
-execBlockStmt :: Stmt -> LPPMonad ()
-execBlockStmt stmt = do
-    retVal <- getRetVal
-    when (isNothing retVal) $ execStmt stmt
-
-execFun :: Block -> LPPMonad ()
-execFun (Block stmts) = mapM_ execBlockStmt stmts
-
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (Evar id) = getVarValue id 
 evalExpr (ELitInt x) = return $ VInt x
@@ -278,7 +293,7 @@ evalExpr (EApp id exprs) = do
     let argsAndVals = zip args vals
     oldEnv <- getEnv
     mapM_ argToState argsAndVals
-    execFun block
+    execBlock block
     setEnv oldEnv
     retVal <- getRetVal
     case retVal of
@@ -329,7 +344,7 @@ evalExpr (EOr e1 e2) = do
 execMain :: LPPMonad ()
 execMain = do
     VFun (_, _, block) <- getVarValue $ Ident "main"
-    execFun block
+    execBlock block
 
 interpret :: Program -> IO (String, Int)
 interpret (Program fundefs) = do

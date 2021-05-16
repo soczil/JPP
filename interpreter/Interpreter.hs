@@ -39,11 +39,13 @@ emptyState = (M.empty, M.empty, 0, False, Nothing)
 
 funToState :: LPPState -> FunDef -> LPPState
 funToState (store, env, loc, elseFlag, retVal) (FunDef t id args block) =
-    (M.insert loc (VFun (t, args, block)) store,
-    M.insert id loc env,
-    loc + 1,
-    elseFlag,
-    retVal)
+    (
+        M.insert loc (VFun (t, args, block)) store,
+        M.insert id loc env,
+        loc + 1,
+        elseFlag,
+        retVal
+    )      
 
 newEnv :: Env
 newEnv = M.empty

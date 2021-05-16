@@ -5,6 +5,8 @@ import System.Exit
 
 import Interpreter
 
+import Typechecker
+
 import Lattepp.Par
 import Lattepp.ErrM
 
@@ -14,10 +16,18 @@ exitInterpreter (err, num) = do
     putStrLn err
     exitWith $ ExitFailure num
 
+finishTypechecker :: (String, Bool) -> IO ()
+finishTypechecker (msg, False) = putStrLn msg
+finishTypechecker (err, True) = do
+    putStrLn err
+    exitWith $ ExitFailure 2
+
 parseAndInterpret :: String -> IO ()
 parseAndInterpret lppProgram = do
     case pProgram (myLexer lppProgram) of
         Ok prog -> do
+            result <- check prog
+            finishTypechecker result
             result <- interpret prog
             exitInterpreter result
         Bad msg -> putStrLn msg

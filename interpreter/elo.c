@@ -24,7 +24,7 @@ int main(void) {
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
-    
+    int elomelo = 5;
     return 0;
     printf("eloo");
 }

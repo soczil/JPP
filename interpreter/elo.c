@@ -1,5 +1,9 @@
 #include <stdio.h>
 
+void elomelo() {
+    printf("jol");
+}
+
 int main(void) {
     int x = 5;
 
@@ -20,7 +24,7 @@ int main(void) {
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
-
+    
     return 0;
     printf("eloo");
 }

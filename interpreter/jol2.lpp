@@ -6,4 +6,15 @@ int main() {
     if (true) {
         string y = "aaa";
     }
+
+    string i = "jol";
+    for (int i = 0; i < 10; i++) {
+        print(i);
+    }
+    print(i);
+
+    Array<int> jol = 10 ** [2];
+    print(jol);
+    jol[2] = 5;
+    print(jol);
 }

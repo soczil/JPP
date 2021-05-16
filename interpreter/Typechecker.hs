@@ -62,13 +62,18 @@ checkDecl (FinalDecl t itms) = mapM_ (checkItem t True) itms
 checkBlock :: Block -> TCMonad ()
 checkBlock (Block stmts) = mapM_ checkStmt stmts
 
+setNewOldVars :: TCMonad ()
+setNewOldVars = do
+    (env, funEnv, _) <- get
+    let oldVars = S.fromAscList $ M.keys env
+    put (env, funEnv, oldVars)
+
 checkBlockNewEnv :: Block -> TCMonad ()
 checkBlockNewEnv block = do
-    (env, funEnv, oldVars) <- get
-    let newOldVars = S.fromAscList $ M.keys env
-    put (env, funEnv, newOldVars)
+    (oldEnv, oldFunEnv, oldOldVars) <- get
+    setNewOldVars
     checkBlock block
-    put (env, funEnv, oldVars)
+    put (oldEnv, oldFunEnv, oldOldVars)
 
 checkFinal :: Bool -> TCMonad ()
 checkFinal final = when final $ throwError FinalVarAssignment
@@ -78,12 +83,27 @@ checkElif (Elif e block) = do
     checkExprType e Bool
     checkBlockNewEnv block
 
+checkForInit :: ForInit -> TCMonad ()
+checkForInit (ForInitExpr exprs) = mapM_ checkExpr exprs
+checkForInit (ForInitVar decl) = checkStmt (DStmt decl)
+
+checkArrItem :: Type -> ArrItem -> TCMonad ()
+checkArrItem t (ArrNoInit id) = varToEnv id (Array t) False
+checkArrItem t (ArrInit id e1 e2) = do
+    checkExprType e1 Int
+    checkExprType e2 t
+    varToEnv id (Array t) False
+
 checkStmt :: Stmt -> TCMonad ()
 checkStmt (BStmt block) = checkBlock block
 checkStmt Empty = return ()
 checkStmt (FStmt fundef) = undefined
-checkStmt (ArrDecl t itms) = undefined
-checkStmt (ArrAss id e1 e2) = undefined
+checkStmt (ArrDecl t itms) = mapM_ (checkArrItem t) itms 
+checkStmt (ArrAss id e1 e2) = do
+    checkExprType e1 Int
+    arrType <- getVarType id
+    exprType <- checkExpr e2
+    checkType arrType (Array exprType)
 checkStmt (DStmt decl) = checkDecl decl
 checkStmt (Ass id e) = do
     (t, final) <- getVarInf id
@@ -110,6 +130,21 @@ checkStmt (CondElse e block1 elifs block2) = do
     checkBlockNewEnv block1
     mapM_ checkElif elifs
     checkBlockNewEnv block2
+checkStmt (While e block) = do
+    checkExprType e Bool
+    checkBlockNewEnv block
+checkStmt (For init e exprs block) = do
+    (oldEnv, oldFunEnv, oldOldVars) <- get
+    setNewOldVars
+    checkForInit init
+    checkExprType e Bool
+    mapM_ checkExpr exprs
+    put (oldEnv, oldFunEnv, oldOldVars)
+checkStmt (ForIn id1 id2 block) = undefined
+checkStmt (EStmt e) = void $ checkExpr e
+checkStmt (Print e) = void $ checkExpr e
+
+
 checkType :: Type -> Type -> TCMonad ()
 checkType expected actual = when (expected /= actual) $ throwError WrongType
 
@@ -150,7 +185,10 @@ checkExpr (EMul e1 _ e2) = checkOpType e1 e2 Int
 checkExpr (EAdd e1 _ e2) = checkOpType e1 e2 Int
 checkExpr (EInc id) = checkPostfixOpType id
 checkExpr (EDec id) = checkPostfixOpType id
-checkExpr (ERel e1 _ e2) = undefined
+checkExpr (ERel e1 _ e2) = do
+    t <- checkExpr e1
+    checkExprType e2 t
+    return Bool
 checkExpr (EAnd e1 e2) = checkOpType e1 e2 Bool
 checkExpr (EOr e1 e2) = checkOpType e1 e2 Bool
 

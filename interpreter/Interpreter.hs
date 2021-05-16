@@ -186,7 +186,7 @@ execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlockNewEnv block
 execStmt Empty = return ()
 execStmt (FStmt fundef) = undefined 
-execStmt (ArrDecl t itms) = mapM_ execArrItem itms
+execStmt (ArrDecl _ itms) = mapM_ execArrItem itms
 execStmt (ArrAss id e1 e2) = do
     VInt idx <- evalExpr e1
     val <- evalExpr e2
@@ -234,14 +234,12 @@ execStmt (While e block) = do
     oldEnv <- getEnv
     execLoop e block []
     setEnv oldEnv
-execStmt (For init e1 e2 block) = do
+execStmt (For init e exprs block) = do
     oldEnv <- getEnv
     execForInit init
-    execLoop e1 block e2
+    execLoop e block exprs
     setEnv oldEnv
-execStmt (EStmt expr) = do
-    evalExpr expr
-    return ()
+execStmt (EStmt expr) = void $ evalExpr expr
 execStmt (Print e) = do
     val <- evalExpr e
     liftIO $ putStrLn $ valueToString val

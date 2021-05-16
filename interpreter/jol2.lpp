@@ -1,3 +1,8 @@
+void joljol() {
+    int x = 5;
+    print(x);
+}
+
 int main() {
     int x = 5;
     int y = 2;
@@ -17,4 +22,6 @@ int main() {
     print(jol);
     jol[2] = 5;
     print(jol);
+
+    joljol();
 }

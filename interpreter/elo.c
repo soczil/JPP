@@ -1,7 +1,11 @@
 #include <stdio.h>
 
-void elomelo() {
+int elomelo() {
+    int x = 5;
     printf("jol");
+    if (x == 6) {
+        return 10;
+    }
 }
 
 int main(void) {
@@ -24,7 +28,16 @@ int main(void) {
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
-    int elomelo = 5;
+    int elomelo1 = elomelo();
+    printf("%d\n", elomelo());
+    
+    void jol() {
+        printf("aaa");
+    }
+    
     return 0;
+    for (int i = 0; i < 10; i++) {
+        printf("jol");
+    }
     printf("eloo");
 }

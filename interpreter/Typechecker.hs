@@ -9,13 +9,15 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 
 type TCVarInf = (Type, Bool)
-type TCEnv = M.Map Ident TCVarInf
+type TCEnv = M.Map Ident TCInf
 type TCOldVars = S.Set Ident
 type TCFunInf = (Type, [(Ident, Type)])
-type TCFunEnv = M.Map Ident TCFunInf
+type TCFunEnv = M.Map Ident TCInf
 type TCExcept = ExceptT TCError IO
 type TCState = (TCEnv, TCFunEnv, TCOldVars)
 type TCMonad = StateT TCState TCExcept
+
+data TCInf = VarInf (Type, Bool) | FunInf (Type, [(Ident, Type)])
 
 data TCError = VarAlreadyDeclared
              | VarNotDeclared Ident
@@ -34,9 +36,9 @@ varToEnv :: Ident -> Type -> Bool -> TCMonad ()
 varToEnv id t final = do
     (env, funEnv, oldVars) <- get
     when (M.member id env && S.notMember id oldVars) $ throwError VarAlreadyDeclared 
-    put (M.insert id (t, final) env, funEnv, S.delete id oldVars)
+    put (M.insert id (VarInf (t, final)) env, funEnv, S.delete id oldVars)
 
-getVarInf :: Ident -> TCMonad TCVarInf
+getVarInf :: Ident -> TCMonad TCInf
 getVarInf id = do
     (env, _, _) <- get
     case M.lookup id env of
@@ -45,7 +47,7 @@ getVarInf id = do
 
 getVarType :: Ident -> TCMonad Type
 getVarType id = do
-    (t, _) <- getVarInf id
+    VarInf (t, _) <- getVarInf id
     return t
 
 checkItem :: Type -> Bool -> Item -> TCMonad ()
@@ -106,15 +108,15 @@ checkStmt (ArrAss id e1 e2) = do
     checkType arrType (Array exprType)
 checkStmt (DStmt decl) = checkDecl decl
 checkStmt (Ass id e) = do
-    (t, final) <- getVarInf id
+    VarInf (t, final) <- getVarInf id
     checkFinal final
     checkExprType e t
 checkStmt (Inc id) = do
-    (t, final) <- getVarInf id
+    VarInf (t, final) <- getVarInf id
     checkFinal final
     checkType Int t
 checkStmt (Dec id) = do
-    (t, final) <- getVarInf id
+    VarInf (t, final) <- getVarInf id
     checkFinal final
     checkType Int t
 checkStmt (Ret e) = undefined
@@ -198,26 +200,28 @@ funToEnv (FunDef t id args _) = do
     case M.lookup id funEnv of
         Nothing -> do
             let argsList = foldr (\(Arg t id) acc -> (id, t) : acc) [] args
-            put (env, M.insert id (t, argsList) funEnv, oldVars)
+            put (env, M.insert id (FunInf (t, argsList)) funEnv, oldVars)
         _ -> throwError FunAlreadyDeclared
 
 argsToList :: [Arg] -> [(Ident, Type)]
 argsToList = foldr (\(Arg t id) acc -> (id, t) : acc) []
 
-getFunInf :: Ident -> TCMonad TCFunInf
+getFunInf :: Ident -> TCMonad TCInf
 getFunInf id = do
     (_, funEnv, _) <- get
     case M.lookup id funEnv of
         Nothing -> throwError FunNotDeclared
         Just inf -> return inf 
 
-checkFun :: FunDef -> TCMonad ()
-checkFun (FunDef t id _ block) = do
-    checkBlock block -- just for now
+checkTopFun :: FunDef -> TCMonad ()
+checkTopFun (FunDef t _ _ block) = do
+    (_, funEnv, _) <- get
+    put (funEnv, funEnv, S.empty)
+    checkBlock block
 
 checkMain :: TCMonad ()
 checkMain = do
-    (t, args) <- getFunInf $ Ident "main"
+    FunInf (t, args) <- getFunInf $ Ident "main"
     when (t /= Int) $ throwError MainFunError
     when (args /= []) $ throwError MainFunError
 
@@ -225,7 +229,7 @@ checkEveryFun :: [FunDef] -> TCMonad ()
 checkEveryFun fundefs = do
     mapM_ funToEnv fundefs
     checkMain
-    mapM_ checkFun fundefs
+    mapM_ checkTopFun fundefs
 
 check :: Program -> IO (String, Bool)
 check (Program fundefs) = do

@@ -22,7 +22,7 @@ data Value = VInt Integer
            | VString String 
            | VBool Bool 
            | VArray [Value]
-           | VFun (Type, [Arg], Block)
+           | VFun (Type, [Ident], Block, LPPEnv)
            | VVoid
     deriving (Ord, Eq)
 
@@ -37,15 +37,15 @@ data LPPError =  DivisionByZero
 emptyState :: LPPState
 emptyState = (M.empty, M.empty, 0, False, Nothing)
 
-funToState :: LPPState -> FunDef -> LPPState
-funToState (store, env, loc, elseFlag, retVal) (FunDef t id args block) =
-    (
-        M.insert loc (VFun (t, args, block)) store,
-        M.insert id loc env,
-        loc + 1,
-        elseFlag,
-        retVal
-    )      
+-- funToState :: LPPState -> FunDef -> LPPState
+-- funToState (store, env, loc, elseFlag, retVal) (FunDef t id args block) =
+--     (
+--         M.insert loc (VFun (t, args, block, env)) store,
+--         M.insert id loc env,
+--         loc + 1,
+--         elseFlag,
+--         retVal
+--     )      
 
 newEnv :: Env
 newEnv = M.empty
@@ -196,7 +196,7 @@ execStmt (ArrAss id e1 e2) = do
 execStmt (DStmt decl) =
     case decl of
         (NormalDecl t itms) -> mapM_ (execItem t) itms
-        (FinalDecl t itms) -> undefined 
+        (FinalDecl t itms) -> mapM_ (execItem t) itms 
 execStmt (Ass id e) = do
     val <- evalExpr e
     updateVarValue id val
@@ -239,6 +239,7 @@ execStmt (For init e exprs block) = do
     execForInit init
     execLoop e block exprs
     setEnv oldEnv
+execStmt (ForIn id1 id2 block) = undefined
 execStmt (EStmt expr) = void $ evalExpr expr
 execStmt (Print e) = do
     val <- evalExpr e
@@ -282,6 +283,11 @@ argToState (Arg _ id, val) = do
     varToEnv id
     updateVarValue id val
 
+funArgToState :: (Ident, Value) -> LPPMonad ()
+funArgToState (id, val) = do
+    varToEnv id
+    updateVarValue id val
+
 evalExpr :: Expr -> LPPMonad Value
 evalExpr (Evar id) = getVarValue id 
 evalExpr (ELitInt x) = return $ VInt x
@@ -289,18 +295,17 @@ evalExpr ELitTrue = return $ VBool True
 evalExpr ELitFalse = return $ VBool False
 evalExpr (EApp id exprs) = do
     vals <- mapM evalExpr exprs
-    VFun (t, args, block) <- getVarValue id
-    let argsAndVals = zip args vals
-    oldEnv <- getEnv
-    mapM_ argToState argsAndVals
+    VFun (t, argIds, block, env) <- getVarValue id
+    let argIdsAndVals = zip argIds vals
+    (_, oldEnv,  _, oldElseFlag, oldRetVal) <- get
+    setEnv env
+    mapM_ funArgToState argIdsAndVals
     execBlock block
-    setEnv oldEnv
-    retVal <- getRetVal
+    (store, _, loc, _, retVal) <- get
+    put (store, oldEnv, loc, oldElseFlag, oldRetVal)
     case retVal of
-        Just val -> do
-            setRetVal Nothing
-            return val
-        Nothing -> return VVoid
+        Just val -> return val
+        Nothing -> return $ defaultValue t
 evalExpr (ArrRead id e) = do
     VInt idx <- evalExpr e
     VArray arr <- getVarValue id
@@ -343,17 +348,30 @@ evalExpr (EOr e1 e2) = do
 
 execMain :: LPPMonad ()
 execMain = do
-    VFun (_, _, block) <- getVarValue $ Ident "main"
+    VFun (_, _, block, _) <- getVarValue $ Ident "main"
     execBlock block
+
+funToEnv :: FunDef -> LPPMonad ()
+funToEnv (FunDef _ id _ _) = do
+    varToEnv id
+
+funToStore :: LPPEnv -> FunDef -> LPPMonad ()
+funToStore env (FunDef t id args block) = do
+    let argIds = foldr (\(Arg _ argId) acc -> argId : acc) [] args
+    updateVarValue id $ VFun (t, argIds, block, env)
+
+interpretProgram :: [FunDef] -> LPPMonad ()
+interpretProgram fundefs = do
+    mapM_ funToEnv fundefs
+    (_, env, _, _, _) <- get
+    mapM_ (funToStore $ M.delete (Ident "main") env) fundefs
+    execMain
 
 interpret :: Program -> IO (String, Int)
 interpret (Program fundefs) = do
-    let newState = foldl funToState emptyState fundefs
-    let runS = runStateT execMain newState
+    let runS = runStateT (interpretProgram fundefs) emptyState
     let runR = runReaderT runS newEnv
     result <- runExceptT runR
     case result of
-        Left err -> do
-            return ("Error: " ++ show err, 1)
-        Right msg -> do
-            return ("NoError", 0)
+        Left err -> return ("Error: " ++ show err, 1)
+        Right msg -> return ("NoError", 0)

@@ -27,7 +27,7 @@ int main(void) {
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
-    int elomelo = 1;
+    const int elomelo = 1;
     
     return 0;
     for (int i = 0; i < 10; i++) {

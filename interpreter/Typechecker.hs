@@ -15,6 +15,7 @@ type TCState = (TCEnv, TCOldVars, Type)
 type TCMonad = StateT TCState TCExcept
 
 data TCInf = VarInf (Type, Bool) | FunInf (Type, [Type])
+    deriving Eq
 
 data TCError = VarAlreadyDeclared
              | VarNotDeclared Ident
@@ -84,9 +85,19 @@ checkElif (Elif e block) = do
     checkExprType e Bool
     checkBlockNewEnv block
 
-checkForInit :: ForInit -> TCMonad ()
-checkForInit (ForInitExpr exprs) = mapM_ checkExpr exprs
-checkForInit (ForInitVar decl) = checkStmt (DStmt decl)
+getItemIdent :: Item -> Ident
+getItemIdent (NoInit id) = id
+getItemIdent (Init id _) = id
+
+checkForInit :: ForInit -> TCMonad [Ident]
+checkForInit (ForInitExpr exprs) = do
+    mapM_ checkExpr exprs
+    return []
+checkForInit (ForInitVar decl) = do
+    checkStmt (DStmt decl)
+    case decl of
+        (NormalDecl _ _) -> return []
+        (FinalDecl _ itms) -> return $ map getItemIdent itms
 
 checkArrItem :: Type -> ArrItem -> TCMonad ()
 checkArrItem t (ArrNoInit id) = varToEnv id (Array t) False
@@ -116,6 +127,12 @@ checkFunDef (FunDef t id args block) = do
     setRetType t
     checkBlock block
     put (oldEnv, oldOldVars, oldRetType)
+
+updateVarFinal :: Bool -> Ident -> TCMonad ()
+updateVarFinal newFinal id = do
+    VarInf (t, final) <- getVarInf id
+    (env, oldVars, retType) <- get
+    put (M.insert id (VarInf (t, newFinal)) env, oldVars, retType)
 
 checkStmt :: Stmt -> TCMonad ()
 checkStmt (BStmt block) = checkBlock block
@@ -163,9 +180,12 @@ checkStmt (While e block) = do
 checkStmt (For init e exprs block) = do
     (oldEnv, oldOldVars, retType) <- get
     setNewOldVars
-    checkForInit init
+    finalVars <- checkForInit init
     checkExprType e Bool
+    mapM_ (updateVarFinal False) finalVars
     mapM_ checkExpr exprs
+    mapM_ (updateVarFinal True) finalVars
+    checkBlock block
     put (oldEnv, oldOldVars, retType)
 checkStmt (ForIn id1 id2 block) = undefined
 checkStmt (EStmt e) = void $ checkExpr e
@@ -188,7 +208,8 @@ checkOpType e1 e2 t = do
 
 checkPostfixOpType :: Ident -> TCMonad Type
 checkPostfixOpType id = do
-    t <- getVarType id
+    VarInf (t, final) <- getVarInf id
+    checkFinal final
     checkType Int t
     return Int
 

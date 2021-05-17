@@ -21,14 +21,31 @@ int main(void) {
     printf("x = %d\n", x);
     // print("y = %d\n", y);
 
-    const int y = 10;
-    printf("%d\n", y);
-
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
     const int elomelo = 1;
-    
+
+    int j;
+    for (j = 0; j < 5; j++) {
+        if (j == 4) {
+            break;
+        }
+    }
+    printf("aaaaaa %d\n", j);
+
+
+    int y = 2;    
+    while (y <= 5) {
+        if (y == 3) {
+            continue;
+        }
+        printf("%d\n", y);
+        y++;
+    }
+
+
+
     return 0;
     for (int i = 0; i < 10; i++) {
         printf("jol");

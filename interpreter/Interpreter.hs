@@ -10,17 +10,18 @@ import Data.Maybe (isNothing)
 
 type Var = String 
 type Loc = Int
-type Env = M.Map Var Loc
 type LPPEnv = M.Map Ident Loc
 type LPPStore = M.Map Loc Value
-type LPPState = (LPPStore, LPPEnv, Loc, Bool, Maybe Value)
+type LPPState = (LPPStore, LPPEnv, Loc, Bool, Maybe Value, Maybe LPPLoop)
 type LPPExcept = ExceptT LPPError IO
-type LPPReader = ReaderT Env LPPExcept
-type LPPMonad = StateT LPPState LPPReader
+type LPPMonad = StateT LPPState LPPExcept
 
-data Value = VInt Integer 
-           | VString String 
-           | VBool Bool 
+data LPPLoop = LPPContinue
+             | LPPBreak
+
+data Value = VInt Integer
+           | VString String
+           | VBool Bool
            | VArray [Value]
            | VFun (Type, [Ident], Block, LPPEnv)
            | VVoid
@@ -35,20 +36,7 @@ data LPPError =  DivisionByZero
     deriving Show
 
 emptyState :: LPPState
-emptyState = (M.empty, M.empty, 0, False, Nothing)
-
--- funToState :: LPPState -> FunDef -> LPPState
--- funToState (store, env, loc, elseFlag, retVal) (FunDef t id args block) =
---     (
---         M.insert loc (VFun (t, args, block, env)) store,
---         M.insert id loc env,
---         loc + 1,
---         elseFlag,
---         retVal
---     )      
-
-newEnv :: Env
-newEnv = M.empty
+emptyState = (M.empty, M.empty, 0, False, Nothing, Nothing)
 
 valueToString :: Value -> String
 valueToString (VInt x) = show x
@@ -63,13 +51,13 @@ defaultValue Str = VString ""
 
 varToEnv :: Ident -> LPPMonad ()
 varToEnv id = do
-    (store, env, loc, doElse, retVal) <- get
+    (store, env, loc, elseFlag, retVal, loopFlag) <- get
     let updatedEnv = M.insert id loc env
-    put (store, updatedEnv, loc + 1, doElse, retVal)
+    put (store, updatedEnv, loc + 1, elseFlag, retVal, loopFlag)
 
 getVarLoc :: Ident -> LPPMonad Loc
 getVarLoc id = do
-    (_, env, _, _, _) <- get
+    (_, env, _, _, _, _) <- get
     case M.lookup id env of
         Just loc -> return loc
         Nothing -> throwError VarNotDeclared
@@ -77,7 +65,7 @@ getVarLoc id = do
 getVarValue :: Ident -> LPPMonad Value
 getVarValue id = do
     loc <- getVarLoc id
-    (store, _, _, _, _) <- get
+    (store, _, _, _, _, _) <- get
     case M.lookup loc store of
         Just val -> return val
         Nothing -> throwError UnknownError
@@ -85,9 +73,9 @@ getVarValue id = do
 updateVarValue :: Ident -> Value -> LPPMonad ()
 updateVarValue id val = do
     varLoc <- getVarLoc id
-    (store, env, loc, doElse, retVal) <- get
+    (store, env, loc, elseFlag, retVal, loopFlag) <- get
     let updatedStore = M.insert varLoc val store
-    put (updatedStore, env, loc, doElse, retVal)
+    put (updatedStore, env, loc, elseFlag, retVal, loopFlag)
 
 execItem :: Type -> Item -> LPPMonad ()
 execItem t (NoInit id) = do
@@ -105,6 +93,14 @@ execBlock (Block stmts) = mapM_ execBlockStmt stmts
         retVal <- getRetVal
         when (isNothing retVal) $ execStmt stmt
 
+execLoopBlock :: Block -> LPPMonad ()
+execLoopBlock (Block stmts) = mapM_ execLoopBlockAux stmts
+    where
+        execLoopBlockAux stmt = do
+            retVal <- getRetVal
+            loopFlag <- getLoopFlag
+            when (isNothing retVal && isNothing loopFlag) $ execStmt stmt
+
 execBlockNewEnv :: Block -> LPPMonad ()
 execBlockNewEnv block = do
     oldEnv <- getEnv
@@ -113,13 +109,13 @@ execBlockNewEnv block = do
 
 getElseFlag :: LPPMonad Bool
 getElseFlag = do
-    (_, _, _, doElse, _) <- get 
+    (_, _, _, doElse, _, _) <- get 
     return doElse
 
 setElseFlag :: Bool -> LPPMonad ()
 setElseFlag val = do
-    (store, env, loc, _, retVal) <- get
-    put (store, env, loc, val, retVal)
+    (store, env, loc, _, retVal, loopFlag) <- get
+    put (store, env, loc, val, retVal, loopFlag)
 
 execElif :: Elif -> LPPMonad ()
 execElif (Elif e block) = do
@@ -152,40 +148,62 @@ updateArr arr idx val = do
 
 getEnv :: LPPMonad LPPEnv
 getEnv = do
-    (_, env, _, _, _) <- get
+    (_, env, _, _, _, _) <- get
     return env
 
 setEnv :: LPPEnv -> LPPMonad ()
 setEnv env = do
-    (store, _, loc, elseFlag, retVal) <- get
-    put (store, env, loc, elseFlag, retVal)
+    (store, _, loc, elseFlag, retVal, loopFlag) <- get
+    put (store, env, loc, elseFlag, retVal, loopFlag)
 
 getRetVal :: LPPMonad (Maybe Value)
 getRetVal = do
-    (_, _, _, _, retVal) <- get
+    (_, _, _, _, retVal, _) <- get
     return retVal
 
 setRetVal :: Maybe Value -> LPPMonad ()
 setRetVal retVal = do
-    (store, env, loc, elseFlag, _) <- get
-    put (store, env, loc, elseFlag, retVal)
+    (store, env, loc, elseFlag, _, loopFlag) <- get
+    put (store, env, loc, elseFlag, retVal, loopFlag)
 
 execForInit :: ForInit -> LPPMonad ()
 execForInit (ForInitExpr exprs) = mapM_ evalExpr exprs
 execForInit (ForInitVar decl) = execStmt (DStmt decl)
 
+continueLoopFlag :: Maybe LPPLoop -> Bool
+continueLoopFlag (Just LPPContinue) = True
+continueLoopFlag _ = False
+
 execLoop :: Expr -> Block -> [Expr] -> LPPMonad ()
 execLoop e1 block exprs = do
+    setLoopFlag Nothing
     VBool val1 <- evalExpr e1
     when val1 $ do
-        execBlock block
-        mapM_ evalExpr exprs
-        execLoop e1 block exprs
+        execLoopBlock block
+        loopFlag <- getLoopFlag
+        when (isNothing loopFlag || continueLoopFlag loopFlag) $ do
+            mapM_ evalExpr exprs
+            execLoop e1 block exprs
 
-execForInLoop :: Ident -> Block -> Value -> LPPMonad ()
-execForInLoop id block val = do
+execForInLoop :: Ident -> Block -> [Value] -> LPPMonad ()
+execForInLoop _ _ [] = return ()
+execForInLoop id block (val:vals) = do
+    setLoopFlag Nothing
     updateVarValue id val
-    execBlock block
+    execLoopBlock block
+    loopFlag <- getLoopFlag
+    when (isNothing loopFlag || continueLoopFlag loopFlag) $ do
+        execForInLoop id block vals
+
+getLoopFlag :: LPPMonad (Maybe LPPLoop)
+getLoopFlag = do
+    (_, _, _, _, _, loopFlag) <- get
+    return loopFlag
+
+setLoopFlag :: Maybe LPPLoop -> LPPMonad ()
+setLoopFlag loopFlag = do
+    (store, env, loc, elseFlag, retVal, _) <- get
+    put (store, env, loc, elseFlag, retVal, loopFlag)
 
 execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlockNewEnv block
@@ -218,8 +236,8 @@ execStmt (Ret e) = do
     val <- evalExpr e
     setRetVal $ Just val
 execStmt RetV = setRetVal $ Just VVoid
-execStmt Break = undefined
-execStmt Continue = undefined
+execStmt Break = setLoopFlag $ Just LPPBreak
+execStmt Continue = setLoopFlag $ Just LPPContinue
 execStmt (Cond e block elifs) = do
     VBool val <- evalExpr e
     if val 
@@ -242,18 +260,25 @@ execStmt (CondElse e block1 elifs block2) = do
             setElseFlag oldFlag
 execStmt (While e block) = do
     oldEnv <- getEnv
+    oldLoopFlag <- getLoopFlag
     execLoop e block []
     setEnv oldEnv
+    setLoopFlag oldLoopFlag
 execStmt (For init e exprs block) = do
     oldEnv <- getEnv
+    oldLoopFlag <- getLoopFlag
     execForInit init
     execLoop e block exprs
     setEnv oldEnv
+    setLoopFlag oldLoopFlag
 execStmt (ForIn id1 id2 block) = do
     oldEnv <- getEnv
+    oldLoopFlag <- getLoopFlag
     VArray arr <- getVarValue id2
-    mapM_ (execForInLoop id1 block) arr
+    varToEnv id1
+    execForInLoop id1 block arr
     setEnv oldEnv
+    setLoopFlag oldLoopFlag
 execStmt (EStmt expr) = void $ evalExpr expr
 execStmt (Print e) = do
     val <- evalExpr e
@@ -311,12 +336,12 @@ evalExpr (EApp id exprs) = do
     vals <- mapM evalExpr exprs
     VFun (t, argIds, block, env) <- getVarValue id
     let argIdsAndVals = zip argIds vals
-    (_, oldEnv,  _, oldElseFlag, oldRetVal) <- get
+    (_, oldEnv,  _, oldElseFlag, oldRetVal, oldLoopFlag) <- get
     setEnv env
     mapM_ funArgToState argIdsAndVals
     execBlock block
-    (store, _, loc, _, retVal) <- get
-    put (store, oldEnv, loc, oldElseFlag, oldRetVal)
+    (store, _, loc, _, retVal, _) <- get
+    put (store, oldEnv, loc, oldElseFlag, oldRetVal, oldLoopFlag)
     case retVal of
         Just val -> return val
         Nothing -> return $ defaultValue t
@@ -377,15 +402,14 @@ funToStore env (FunDef t id args block) = do
 interpretProgram :: [FunDef] -> LPPMonad ()
 interpretProgram fundefs = do
     mapM_ funToEnv fundefs
-    (_, env, _, _, _) <- get
+    env <- getEnv
     mapM_ (funToStore $ M.delete (Ident "main") env) fundefs
     execMain
 
 interpret :: Program -> IO (String, Int)
 interpret (Program fundefs) = do
     let runS = runStateT (interpretProgram fundefs) emptyState
-    let runR = runReaderT runS newEnv
-    result <- runExceptT runR
+    result <- runExceptT runS
     case result of
         Left err -> return ("Error: " ++ show err, 1)
         Right msg -> return ("NoError", 0)

@@ -28,6 +28,7 @@ data TCError = VarAlreadyDeclared
              | WrongArgumentType
              | WrongNumberOfArguments
              | NotAnArray
+             | WTF Type Type
     deriving Show
 
 -- do zmiany
@@ -199,7 +200,8 @@ checkStmt (ForIn id1 id2 block) = do
     setNewOldVars
     t <- getVarType id2
     unless (checkIfArray t) $ throwError NotAnArray
-    varToEnv id1 t True
+    let (Array id1Type) = t
+    varToEnv id1 id1Type True
     checkBlock block
     put (oldEnv, oldOldVars, oldRetType)
 checkStmt (EStmt e) = void $ checkExpr e

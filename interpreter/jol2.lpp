@@ -28,7 +28,7 @@ int main() {
     // }
     // print(i);
 
-    Array<int> jol = 3 ** [2];
+    Array<int> jol = 3 ** [8];
     print(jol);
     jol[2] = 5;
     print(jol);
@@ -36,6 +36,34 @@ int main() {
 
     for (x : jol) {
         print(x);
+    }
+
+    print("==========================");
+
+    for (int i = 5; i >= 0; i--) {
+        if (i == 3) {
+            continue;
+        }
+        print(i);
+    }
+
+    print("jol");
+
+    break;
+
+    while (y <= 5) {
+        if (y == 3) {
+            break;
+        }
+        print(y);
+        y++;
+    }
+
+    for (a : jol) {
+        if (a == 5) {
+            continue;
+        }
+        print(a);
     }
 
     return 0;

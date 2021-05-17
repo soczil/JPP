@@ -14,7 +14,7 @@ type TCExcept = ExceptT TCError IO
 type TCState = (TCEnv, TCOldVars, Type)
 type TCMonad = StateT TCState TCExcept
 
-data TCInf = VarInf (Type, Bool) | FunInf (Type, [(Ident, Type)])
+data TCInf = VarInf (Type, Bool) | FunInf (Type, [Type])
 
 data TCError = VarAlreadyDeclared
              | VarNotDeclared Ident
@@ -24,6 +24,8 @@ data TCError = VarAlreadyDeclared
              | MainFunError
              | FinalVarAssignment
              | ReturnTypeError
+             | WrongArgumentType
+             | WrongNumberOfArguments
     deriving Show
 
 -- do zmiany
@@ -58,7 +60,6 @@ checkDecl :: Decl -> TCMonad ()
 checkDecl (NormalDecl t itms) = mapM_ (checkItem t False) itms
 checkDecl (FinalDecl t itms) = mapM_ (checkItem t True) itms
 
--- Pierwsza wersja !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 checkBlock :: Block -> TCMonad ()
 checkBlock (Block stmts) = mapM_ checkStmt stmts
 
@@ -70,10 +71,10 @@ setNewOldVars = do
 
 checkBlockNewEnv :: Block -> TCMonad ()
 checkBlockNewEnv block = do
-    (oldEnv, oldOldVars, retType) <- get
+    (oldEnv, oldOldVars, oldRetType) <- get
     setNewOldVars
     checkBlock block
-    put (oldEnv, oldOldVars, retType)
+    put (oldEnv, oldOldVars, oldRetType)
 
 checkFinal :: Bool -> TCMonad ()
 checkFinal final = when final $ throwError FinalVarAssignment
@@ -99,10 +100,29 @@ checkReturn t = do
     (_, _, retType) <- get
     when (t /= retType) $ throwError ReturnTypeError
 
+funArgsToEnv :: [Arg] -> TCMonad ()
+funArgsToEnv = mapM_ (\(Arg argType argId) -> varToEnv argId argType False)
+
+setRetType :: Type -> TCMonad ()
+setRetType t = do
+    (env, oldVars, _) <- get
+    put (env, oldVars, t)
+
+checkFunDef :: FunDef -> TCMonad ()
+checkFunDef (FunDef t id args block) = do
+    (oldEnv, oldOldVars, oldRetType) <- get
+    setNewOldVars
+    funArgsToEnv args
+    setRetType t
+    checkBlock block
+    put (oldEnv, oldOldVars, oldRetType)
+
 checkStmt :: Stmt -> TCMonad ()
 checkStmt (BStmt block) = checkBlock block
 checkStmt Empty = return ()
-checkStmt (FStmt fundef) = undefined
+checkStmt (FStmt fundef) = do
+    funToEnv fundef
+    checkFunDef fundef
 checkStmt (ArrDecl t itms) = mapM_ (checkArrItem t) itms 
 checkStmt (ArrAss id e1 e2) = do
     checkExprType e1 Int
@@ -177,12 +197,22 @@ checkPrefixOpType e t = do
     checkExprType e t
     return t
 
+checkFunArg :: (Type, Expr) -> TCMonad ()
+checkFunArg (t, e) = do
+    exprType <- checkExpr e
+    when (t /= exprType) $ throwError WrongArgumentType
+
 checkExpr :: Expr -> TCMonad Type
 checkExpr (Evar id) = getVarType id
 checkExpr (ELitInt _) = return Int
 checkExpr ELitTrue = return Bool
 checkExpr ELitFalse = return Bool
-checkExpr (EApp id exprs) = undefined
+checkExpr (EApp id exprs) = do
+    FunInf (t, argTypes) <- getVarInf id
+    when (length exprs /= length argTypes) $ throwError WrongNumberOfArguments
+    let argTypesAndExprs = zip argTypes exprs
+    mapM_ checkFunArg argTypesAndExprs
+    return Void
 checkExpr (ArrRead id e) = do
     checkExprType e Int
     getVarType id
@@ -205,21 +235,21 @@ funToEnv (FunDef t id args _) = do
     (env, oldVars, retType) <- get
     case M.lookup id env of
         Nothing -> do
-            let argsList = foldr (\(Arg t id) acc -> (id, t) : acc) [] args
-            put (M.insert id (FunInf (t, argsList)) env, oldVars, retType)
+            let argTypeList = foldr (\(Arg t _) acc -> t : acc) [] args
+            put (M.insert id (FunInf (t, argTypeList)) env, oldVars, retType)
         _ -> throwError FunAlreadyDeclared
 
 checkTopFun :: TCEnv -> FunDef -> TCMonad ()
 checkTopFun initialEnv (FunDef t _ args block) = do
     put (initialEnv, S.empty, t)
-    mapM_ (\(Arg argType argId) -> varToEnv argId argType False) args
+    funArgsToEnv args
     checkBlock block
 
 checkMain :: TCMonad ()
 checkMain = do
-    FunInf (t, args) <- getVarInf $ Ident "main"
+    FunInf (t, argTypes) <- getVarInf $ Ident "main"
     when (t /= Int) $ throwError MainFunError
-    when (args /= []) $ throwError MainFunError
+    when (argTypes /= []) $ throwError MainFunError
 
 checkEveryTopFun :: [FunDef] -> TCMonad ()
 checkEveryTopFun fundefs = do

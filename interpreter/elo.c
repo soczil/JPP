@@ -3,6 +3,8 @@
 int elomelo() {
     int x = 5;
     printf("jol");
+    int elomelo = 2;
+    return 0;
 }
 
 int main(void) {

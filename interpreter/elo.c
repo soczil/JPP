@@ -3,9 +3,6 @@
 int elomelo() {
     int x = 5;
     printf("jol");
-    if (x == 6) {
-        return 10;
-    }
 }
 
 int main(void) {
@@ -28,12 +25,7 @@ int main(void) {
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }
-    int elomelo1 = elomelo();
-    printf("%d\n", elomelo());
-    
-    void jol() {
-        printf("aaa");
-    }
+    int elomelo = 1;
     
     return 0;
     for (int i = 0; i < 10; i++) {

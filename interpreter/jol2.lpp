@@ -1,6 +1,7 @@
 void joljol() {
     int x = 5;
     print(x);
+    return;
 }
 
 int main() {
@@ -22,6 +23,4 @@ int main() {
     print(jol);
     jol[2] = 5;
     print(jol);
-
-    joljol();
 }

@@ -26,8 +26,8 @@ parseAndInterpret :: String -> IO ()
 parseAndInterpret lppProgram = do
     case pProgram (myLexer lppProgram) of
         Ok prog -> do
-            -- result <- check prog
-            -- finishTypechecker result
+            result <- check prog
+            finishTypechecker result
             result <- interpret prog
             exitInterpreter result
         Bad msg -> putStrLn msg

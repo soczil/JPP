@@ -27,6 +27,7 @@ data TCError = VarAlreadyDeclared
              | ReturnTypeError
              | WrongArgumentType
              | WrongNumberOfArguments
+             | NotAnArray
     deriving Show
 
 -- do zmiany
@@ -48,8 +49,10 @@ getVarInf id = do
 
 getVarType :: Ident -> TCMonad Type
 getVarType id = do
-    VarInf (t, _) <- getVarInf id
-    return t
+    inf <- getVarInf id
+    case inf of
+        VarInf (t, _) -> return t
+        FunInf (t, _) -> return t
 
 checkItem :: Type -> Bool -> Item -> TCMonad ()
 checkItem t final (NoInit id) = varToEnv id t final
@@ -119,8 +122,8 @@ setRetType t = do
     (env, oldVars, _) <- get
     put (env, oldVars, t)
 
-checkFunDef :: FunDef -> TCMonad ()
-checkFunDef (FunDef t id args block) = do
+checkFun :: FunDef -> TCMonad ()
+checkFun (FunDef t id args block) = do
     (oldEnv, oldOldVars, oldRetType) <- get
     setNewOldVars
     funArgsToEnv args
@@ -134,12 +137,16 @@ updateVarFinal newFinal id = do
     (env, oldVars, retType) <- get
     put (M.insert id (VarInf (t, newFinal)) env, oldVars, retType)
 
+checkIfArray :: Type -> Bool
+checkIfArray (Array _) = True
+checkIfArray _ = False
+
 checkStmt :: Stmt -> TCMonad ()
 checkStmt (BStmt block) = checkBlock block
 checkStmt Empty = return ()
 checkStmt (FStmt fundef) = do
     funToEnv fundef
-    checkFunDef fundef
+    checkFun fundef
 checkStmt (ArrDecl t itms) = mapM_ (checkArrItem t) itms 
 checkStmt (ArrAss id e1 e2) = do
     checkExprType e1 Int
@@ -178,7 +185,7 @@ checkStmt (While e block) = do
     checkExprType e Bool
     checkBlockNewEnv block
 checkStmt (For init e exprs block) = do
-    (oldEnv, oldOldVars, retType) <- get
+    (oldEnv, oldOldVars, oldRetType) <- get
     setNewOldVars
     finalVars <- checkForInit init
     checkExprType e Bool
@@ -186,11 +193,17 @@ checkStmt (For init e exprs block) = do
     mapM_ checkExpr exprs
     mapM_ (updateVarFinal True) finalVars
     checkBlock block
-    put (oldEnv, oldOldVars, retType)
-checkStmt (ForIn id1 id2 block) = undefined
+    put (oldEnv, oldOldVars, oldRetType)
+checkStmt (ForIn id1 id2 block) = do
+    (oldEnv, oldOldVars, oldRetType) <- get
+    setNewOldVars
+    t <- getVarType id2
+    unless (checkIfArray t) $ throwError NotAnArray
+    varToEnv id1 t True
+    checkBlock block
+    put (oldEnv, oldOldVars, oldRetType)
 checkStmt (EStmt e) = void $ checkExpr e
 checkStmt (Print e) = void $ checkExpr e
-
 
 checkType :: Type -> Type -> TCMonad ()
 checkType expected actual = when (expected /= actual) $ throwError WrongType
@@ -233,7 +246,7 @@ checkExpr (EApp id exprs) = do
     when (length exprs /= length argTypes) $ throwError WrongNumberOfArguments
     let argTypesAndExprs = zip argTypes exprs
     mapM_ checkFunArg argTypesAndExprs
-    return Void
+    return t
 checkExpr (ArrRead id e) = do
     checkExprType e Int
     getVarType id

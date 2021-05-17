@@ -1,6 +1,16 @@
 int joljol() {
     int x = 5;
-    return 128 + x;
+
+    x = 5;
+    int jol() {
+        int x = 123;
+        return x + 5;
+    }
+
+    print(jol());
+    print(x);
+
+    return 128;
 }
 
 int main() {
@@ -18,14 +28,14 @@ int main() {
     // }
     // print(i);
 
-    Array<int> jol = 10 ** [2];
+    Array<int> jol = 3 ** [2];
     print(jol);
     jol[2] = 5;
     print(jol);
     print(joljol());
 
-    for (final int i = 0; i < 20; i++) {
-        print(i);
+    for (x : jol) {
+        print(x);
     }
 
     return 0;

@@ -182,10 +182,18 @@ execLoop e1 block exprs = do
         mapM_ evalExpr exprs
         execLoop e1 block exprs
 
+execForInLoop :: Ident -> Block -> Value -> LPPMonad ()
+execForInLoop id block val = do
+    updateVarValue id val
+    execBlock block
+
 execStmt :: Stmt -> LPPMonad ()
 execStmt (BStmt block) = execBlockNewEnv block
 execStmt Empty = return ()
-execStmt (FStmt fundef) = undefined 
+execStmt (FStmt fundef) = do
+    funToEnv fundef
+    env <- getEnv
+    funToStore env fundef
 execStmt (ArrDecl _ itms) = mapM_ execArrItem itms
 execStmt (ArrAss id e1 e2) = do
     VInt idx <- evalExpr e1
@@ -210,6 +218,8 @@ execStmt (Ret e) = do
     val <- evalExpr e
     setRetVal $ Just val
 execStmt RetV = setRetVal $ Just VVoid
+execStmt Break = undefined
+execStmt Continue = undefined
 execStmt (Cond e block elifs) = do
     VBool val <- evalExpr e
     if val 
@@ -239,7 +249,11 @@ execStmt (For init e exprs block) = do
     execForInit init
     execLoop e block exprs
     setEnv oldEnv
-execStmt (ForIn id1 id2 block) = undefined
+execStmt (ForIn id1 id2 block) = do
+    oldEnv <- getEnv
+    VArray arr <- getVarValue id2
+    mapM_ (execForInLoop id1 block) arr
+    setEnv oldEnv
 execStmt (EStmt expr) = void $ evalExpr expr
 execStmt (Print e) = do
     val <- evalExpr e

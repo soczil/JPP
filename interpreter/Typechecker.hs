@@ -1,4 +1,4 @@
-module Typechecker where
+module Typechecker (check) where
 
 import Control.Monad.State
 import Control.Monad.Except
@@ -14,7 +14,8 @@ type TCExcept = ExceptT TCError IO
 type TCState = (TCEnv, TCOldVars, Type)
 type TCMonad = StateT TCState TCExcept
 
-data TCInf = VarInf (Type, Bool) | FunInf (Type, [Type])
+data TCInf = VarInf (Type, Bool) 
+           | FunInf (Type, [Type])
     deriving Eq
 
 data TCError = VarAlreadyDeclared
@@ -31,8 +32,20 @@ data TCError = VarAlreadyDeclared
              | WTF
     deriving Show
 
+-- ========================== Utils ===========================================
+
 emptyState :: TCState
 emptyState = (M.empty, S.empty, Void)
+
+getItemIdent :: Item -> Ident
+getItemIdent (NoInit id) = id
+getItemIdent (Init id _) = id
+
+checkIfArray :: Type -> Bool
+checkIfArray (Array _) = True
+checkIfArray _ = False
+
+-- ========================== TCMonad utils ===================================
 
 varToEnv :: Ident -> Type -> Bool -> TCMonad ()
 varToEnv id t final = do
@@ -54,65 +67,11 @@ getVarType id = do
         VarInf (t, _) -> return t
         FunInf (t, _) -> return t
 
-checkItem :: Type -> Bool -> Item -> TCMonad ()
-checkItem t final (NoInit id) = varToEnv id t final
-checkItem t final (Init id e) = do
-    checkExprType e t
-    varToEnv id t final
-
-checkDecl :: Decl -> TCMonad ()
-checkDecl (NormalDecl t itms) = mapM_ (checkItem t False) itms
-checkDecl (FinalDecl t itms) = mapM_ (checkItem t True) itms
-
-checkBlock :: Block -> TCMonad ()
-checkBlock (Block stmts) = mapM_ checkStmt stmts
-
 setNewOldVars :: TCMonad ()
 setNewOldVars = do
     (env, _, retType) <- get
     let oldVars = S.fromAscList $ M.keys env
     put (env, oldVars, retType)
-
-checkBlockNewEnv :: Block -> TCMonad ()
-checkBlockNewEnv block = do
-    (oldEnv, oldOldVars, oldRetType) <- get
-    setNewOldVars
-    checkBlock block
-    put (oldEnv, oldOldVars, oldRetType)
-
-checkFinal :: Bool -> TCMonad ()
-checkFinal final = when final $ throwError FinalVarAssignment
-
-checkElif :: Elif -> TCMonad ()
-checkElif (Elif e block) = do
-    checkExprType e Bool
-    checkBlockNewEnv block
-
-getItemIdent :: Item -> Ident
-getItemIdent (NoInit id) = id
-getItemIdent (Init id _) = id
-
-checkForInit :: ForInit -> TCMonad [Ident]
-checkForInit (ForInitExpr exprs) = do
-    mapM_ checkExpr exprs
-    return []
-checkForInit (ForInitVar decl) = do
-    checkStmt (DStmt decl)
-    case decl of
-        (NormalDecl _ _) -> return []
-        (FinalDecl _ itms) -> return $ map getItemIdent itms
-
-checkArrItem :: Type -> ArrItem -> TCMonad ()
-checkArrItem t (ArrNoInit id) = varToEnv id (Array t) False
-checkArrItem t (ArrInit id e1 e2) = do
-    checkExprType e1 Int
-    checkExprType e2 t
-    varToEnv id (Array t) False
-
-checkReturn :: Type -> TCMonad ()
-checkReturn t = do
-    (_, _, retType) <- get
-    when (t /= retType) $ throwError ReturnTypeError
 
 funArgsToEnv :: [Arg] -> TCMonad ()
 funArgsToEnv = mapM_ (\(Arg argType argId) -> varToEnv argId argType False)
@@ -122,24 +81,30 @@ setRetType t = do
     (env, oldVars, _) <- get
     put (env, oldVars, t)
 
-checkFun :: FunDef -> TCMonad ()
-checkFun (FunDef t id args block) = do
-    (oldEnv, oldOldVars, oldRetType) <- get
-    setNewOldVars
-    funArgsToEnv args
-    setRetType t
-    checkBlock block
-    put (oldEnv, oldOldVars, oldRetType)
-
 updateVarFinal :: Bool -> Ident -> TCMonad ()
 updateVarFinal newFinal id = do
     VarInf (t, final) <- getVarInf id
     (env, oldVars, retType) <- get
     put (M.insert id (VarInf (t, newFinal)) env, oldVars, retType)
 
-checkIfArray :: Type -> Bool
-checkIfArray (Array _) = True
-checkIfArray _ = False
+funToEnv :: FunDef -> TCMonad ()
+funToEnv (FunDef t id args _) = do
+    (env, oldVars, retType) <- get
+    case M.lookup id env of
+        Nothing -> do
+            let argTypeList = foldr (\(Arg t _) acc -> t : acc) [] args
+            put (M.insert id (FunInf (t, argTypeList)) env, oldVars, retType)
+        _ -> throwError FunAlreadyDeclared
+
+checkType :: Type -> Type -> TCMonad ()
+checkType expected actual = when (expected /= actual) $ throwError WrongType
+
+checkExprType :: Expr -> Type -> TCMonad ()
+checkExprType e t = do
+    actualType <- checkExpr e
+    checkType t actualType
+
+-- ========================== Statements ======================================
 
 checkStmt :: Stmt -> TCMonad ()
 checkStmt (BStmt block) = checkBlock block
@@ -206,36 +171,66 @@ checkStmt (ForIn id1 id2 block) = do
 checkStmt (EStmt e) = void $ checkExpr e
 checkStmt (Print e) = void $ checkExpr e
 
-checkType :: Type -> Type -> TCMonad ()
-checkType expected actual = when (expected /= actual) $ throwError WrongType
-
-checkExprType :: Expr -> Type -> TCMonad ()
-checkExprType e t = do
-    actualType <- checkExpr e
-    checkType t actualType
-
-checkOpType :: Expr -> Expr -> Type -> TCMonad Type
-checkOpType e1 e2 t = do
-    checkExprType e1 t
-    checkExprType e2 t
-    return t
-
-checkPostfixOpType :: Ident -> TCMonad Type
-checkPostfixOpType id = do
-    VarInf (t, final) <- getVarInf id
-    checkFinal final
-    checkType Int t
-    return Int
-
-checkPrefixOpType :: Expr -> Type -> TCMonad Type
-checkPrefixOpType e t = do
+checkItem :: Type -> Bool -> Item -> TCMonad ()
+checkItem t final (NoInit id) = varToEnv id t final
+checkItem t final (Init id e) = do
     checkExprType e t
-    return t
+    varToEnv id t final
 
-checkFunArg :: (Type, Expr) -> TCMonad ()
-checkFunArg (t, e) = do
-    exprType <- checkExpr e
-    when (t /= exprType) $ throwError WrongArgumentType
+checkDecl :: Decl -> TCMonad ()
+checkDecl (NormalDecl t itms) = mapM_ (checkItem t False) itms
+checkDecl (FinalDecl t itms) = mapM_ (checkItem t True) itms
+
+checkBlock :: Block -> TCMonad ()
+checkBlock (Block stmts) = mapM_ checkStmt stmts
+
+checkBlockNewEnv :: Block -> TCMonad ()
+checkBlockNewEnv block = do
+    (oldEnv, oldOldVars, oldRetType) <- get
+    setNewOldVars
+    checkBlock block
+    put (oldEnv, oldOldVars, oldRetType)
+
+checkFinal :: Bool -> TCMonad ()
+checkFinal final = when final $ throwError FinalVarAssignment
+
+checkElif :: Elif -> TCMonad ()
+checkElif (Elif e block) = do
+    checkExprType e Bool
+    checkBlockNewEnv block
+
+checkForInit :: ForInit -> TCMonad [Ident]
+checkForInit (ForInitExpr exprs) = do
+    mapM_ checkExpr exprs
+    return []
+checkForInit (ForInitVar decl) = do
+    checkStmt (DStmt decl)
+    case decl of
+        (NormalDecl _ _) -> return []
+        (FinalDecl _ itms) -> return $ map getItemIdent itms
+
+checkArrItem :: Type -> ArrItem -> TCMonad ()
+checkArrItem t (ArrNoInit id) = varToEnv id (Array t) False
+checkArrItem t (ArrInit id e1 e2) = do
+    checkExprType e1 Int
+    checkExprType e2 t
+    varToEnv id (Array t) False
+
+checkReturn :: Type -> TCMonad ()
+checkReturn t = do
+    (_, _, retType) <- get
+    when (t /= retType) $ throwError ReturnTypeError
+
+checkFun :: FunDef -> TCMonad ()
+checkFun (FunDef t id args block) = do
+    (oldEnv, oldOldVars, oldRetType) <- get
+    setNewOldVars
+    funArgsToEnv args
+    setRetType t
+    checkBlock block
+    put (oldEnv, oldOldVars, oldRetType)
+
+-- ========================== Expressions =====================================
 
 checkExpr :: Expr -> TCMonad Type
 checkExpr (Evar id) = getVarType id
@@ -268,14 +263,30 @@ checkExpr (ERel e1 _ e2) = do
 checkExpr (EAnd e1 e2) = checkOpType e1 e2 Bool
 checkExpr (EOr e1 e2) = checkOpType e1 e2 Bool
 
-funToEnv :: FunDef -> TCMonad ()
-funToEnv (FunDef t id args _) = do
-    (env, oldVars, retType) <- get
-    case M.lookup id env of
-        Nothing -> do
-            let argTypeList = foldr (\(Arg t _) acc -> t : acc) [] args
-            put (M.insert id (FunInf (t, argTypeList)) env, oldVars, retType)
-        _ -> throwError FunAlreadyDeclared
+checkOpType :: Expr -> Expr -> Type -> TCMonad Type
+checkOpType e1 e2 t = do
+    checkExprType e1 t
+    checkExprType e2 t
+    return t
+
+checkPostfixOpType :: Ident -> TCMonad Type
+checkPostfixOpType id = do
+    VarInf (t, final) <- getVarInf id
+    checkFinal final
+    checkType Int t
+    return Int
+
+checkPrefixOpType :: Expr -> Type -> TCMonad Type
+checkPrefixOpType e t = do
+    checkExprType e t
+    return t
+
+checkFunArg :: (Type, Expr) -> TCMonad ()
+checkFunArg (t, e) = do
+    exprType <- checkExpr e
+    when (t /= exprType) $ throwError WrongArgumentType
+
+-- ========================== Running =========================================
 
 checkTopFun :: TCEnv -> FunDef -> TCMonad ()
 checkTopFun initialEnv (FunDef t _ args block) = do

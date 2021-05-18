@@ -32,11 +32,6 @@ data LPPError =  DivisionByZero
                | IndexOutOfBounds  
     deriving Show
 
-getErrMsg :: LPPError -> String
-getErrMsg DivisionByZero = "Division by zero"
-getErrMsg ModuloByZero = "Modulo by zero"
-getErrMsg IndexOutOfBounds = "Index out of bounds"
-
 -- ========================== Utils ===========================================
 
 emptyState :: LPPState
@@ -56,6 +51,11 @@ defaultValue (Str _) = VString ""
 continueLoopFlag :: Maybe LPPLoop -> Bool
 continueLoopFlag (Just LPPContinue) = True
 continueLoopFlag _ = False
+
+getErrMsg :: LPPError -> String
+getErrMsg DivisionByZero = "Division by zero"
+getErrMsg ModuloByZero = "Modulo by zero"
+getErrMsg IndexOutOfBounds = "Index out of bounds"
 
 -- ========================== LPPMonad utils ==================================
 

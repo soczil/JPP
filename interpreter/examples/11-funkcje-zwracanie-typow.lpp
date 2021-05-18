@@ -1,0 +1,29 @@
+int return_int(int x, string y, bool z) {
+    if (z) {
+        print(y);
+    }
+
+    return x;
+}
+
+string return_string(int x, int y, string z) {
+    if (x % y == x) {
+        return z;
+    }
+    else {
+        return "inny napis";
+    }
+}
+
+bool return_bool(int x, int y) {
+    return x == y;
+}
+
+int main() {
+    print(return_int(123, "ala ma kota", true));
+    print(return_string(3, 4, "jakis napis"));
+    print(return_string(3, 2, "jakis napis"));
+    print(return_bool(123, 123));
+    
+    return 0;
+}

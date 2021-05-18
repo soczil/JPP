@@ -1,0 +1,17 @@
+int main() {
+    final string i = "ala ma kota";
+    
+    for (int i = 0; i < 10; i++) {
+        print(i);
+        i++;
+    }
+
+    print(i);
+
+    for (final int i = 0; i < 10; i++) {
+        // niedozwolone zmienianie wartości i w bloku pętli
+        print(i);
+    }
+
+    return 0;
+}

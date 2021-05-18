@@ -1,0 +1,23 @@
+void fun1() {
+    int x = 10;
+
+    void fun2() {
+        x = 11;
+        
+        void fun3() {
+            int x = 123;
+            print(x);
+        }
+
+        fun3();
+        print(x);
+    }
+
+    fun2();
+    print(x);
+}
+
+int main() {
+    fun1();
+    return 0;
+}

@@ -28,7 +28,7 @@ data TCError = VarAlreadyDeclared
              | WrongArgumentType
              | WrongNumberOfArguments
              | NotAnArray
-             | WTF Type Type
+             | WTF
     deriving Show
 
 -- do zmiany
@@ -251,7 +251,10 @@ checkExpr (EApp id exprs) = do
     return t
 checkExpr (ArrRead id e) = do
     checkExprType e Int
-    getVarType id
+    t <- getVarType id
+    unless (checkIfArray t) $ throwError NotAnArray
+    let (Array arrType) = t
+    return arrType
 checkExpr (EString _) = return Str
 checkExpr (Neg e) = checkPrefixOpType e Int
 checkExpr (Not e) = checkPrefixOpType e Bool

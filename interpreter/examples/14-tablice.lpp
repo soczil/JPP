@@ -1,0 +1,26 @@
+Array<int> fib(Array<int> a) {
+    a[0] = 0;
+    a[1] = 1;
+
+    int i = 2;
+
+    for (int i = 2; i < 20; i++) {
+        a[i] = a[i - 1] + a[i - 2];
+    }
+
+    return a;
+}
+
+int main() {
+    Array<int> arr = 20 ** [0];
+    print(arr);
+
+    arr = fib(arr);
+    print(arr);
+
+    for (x : arr) {
+        print(x);
+    }
+
+    return 0;
+}

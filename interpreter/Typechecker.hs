@@ -31,7 +31,6 @@ data TCError = VarAlreadyDeclared
              | WTF
     deriving Show
 
--- do zmiany
 emptyState :: TCState
 emptyState = (M.empty, S.empty, Void)
 

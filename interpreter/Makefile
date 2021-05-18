@@ -11,7 +11,7 @@ parser: ${LANG_NAME}.cf
 	@echo "Creating a parser..."
 	mkdir ${PARSER_BUILD} && \
 	cd ${PARSER_BUILD} && \
-	${BNFC} --haskell -d -m ../${LANG_NAME}.cf && \
+	${BNFC} --haskell --functor -d -m ../${LANG_NAME}.cf && \
 	make && \
 	mv ${LANG_NAME} ../
 

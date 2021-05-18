@@ -21,6 +21,7 @@ int main(void) {
     printf("x = %d\n", x);
     // print("y = %d\n", y);
 
+
     for (int i = 0; i < 5; i++) {
         printf("jol %d\n", i);
     }

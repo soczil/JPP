@@ -66,5 +66,7 @@ int main() {
         print(a);
     }
 
+    print(10 / 0);
+
     return 0;
 }

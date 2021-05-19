@@ -1,25 +1,25 @@
 module Main where
 
-import System.Environment
-import System.Exit
-
-import Interpreter
-
-import Typechecker
+import System.IO (hPutStrLn, stderr)
+import System.Environment (getArgs)
+import System.Exit (ExitCode(ExitFailure), exitWith)
 
 import Lattepp.Par
 import Lattepp.ErrM
 
-exitInterpreter :: (String, Int) -> IO ()
-exitInterpreter (msg, 0) = return ()
-exitInterpreter (err, num) = do
-    putStrLn err
-    exitWith $ ExitFailure num
+import Interpreter
+import Typechecker
+
+exitInterpreter :: (String, Bool) -> IO ()
+exitInterpreter (msg, False) = return ()
+exitInterpreter (err, True) = do
+    hPutStrLn stderr err
+    exitWith $ ExitFailure 1
 
 finishTypechecker :: (String, Bool) -> IO ()
-finishTypechecker (msg, False) = putStrLn msg
+finishTypechecker (msg, False) = return ()
 finishTypechecker (err, True) = do
-    putStrLn err
+    hPutStrLn stderr err
     exitWith $ ExitFailure 2
 
 parseAndInterpret :: String -> IO ()

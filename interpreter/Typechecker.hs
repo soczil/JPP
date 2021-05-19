@@ -81,7 +81,7 @@ showT (Array _ t) = "Array<" ++ showT t ++ ">"
 errMsgPrefix :: BNFC'Position -> String
 errMsgPrefix p = case p of
     Nothing -> "Static Error: "
-    Just (l, c) -> "Static Error (line " ++ show l ++ ", column " ++ show c ++ "): "
+    Just (l, _) -> "Static Error at line " ++ show l ++ ": " 
 
 errMsg :: TCError -> String
 errMsg NoMainFunction = errMsgPrefix Nothing ++

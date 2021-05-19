@@ -13,7 +13,7 @@ type Loc = Int
 type LPPEnv = M.Map Ident Loc
 type LPPStore = M.Map Loc Value
 type LPPState = (LPPStore, LPPEnv, Loc, Bool, Maybe Value, Maybe LPPLoop)
-type LPPExcept = ExceptT (String, BNFC'Position) IO
+type LPPExcept = ExceptT LPPError IO
 type LPPMonad = StateT LPPState LPPExcept
 
 data Value = VInt Integer
@@ -27,9 +27,9 @@ data Value = VInt Integer
 data LPPLoop = LPPContinue
              | LPPBreak
 
-data LPPError =  DivisionByZero 
-               | ModuloByZero 
-               | IndexOutOfBounds  
+data LPPError =  DivisionByZero BNFC'Position
+               | ModuloByZero BNFC'Position
+               | IndexOutOfBounds BNFC'Position
     deriving Show
 
 -- ========================== Utils ===========================================
@@ -52,10 +52,15 @@ continueLoopFlag :: Maybe LPPLoop -> Bool
 continueLoopFlag (Just LPPContinue) = True
 continueLoopFlag _ = False
 
-getErrMsg :: LPPError -> String
-getErrMsg DivisionByZero = "Division by zero"
-getErrMsg ModuloByZero = "Modulo by zero"
-getErrMsg IndexOutOfBounds = "Index out of bounds"
+errMsgPrefix :: BNFC'Position -> String
+errMsgPrefix p = case p of
+    Nothing -> "Runtime Error: "
+    Just (l, _) -> "Runtime Error at line " ++ show l ++ ": "
+
+errMsg :: LPPError -> String
+errMsg (DivisionByZero p) = errMsgPrefix p ++ "Division by zero"
+errMsg (ModuloByZero p) = errMsgPrefix p ++ "Modulo by zero"
+errMsg (IndexOutOfBounds p) = errMsgPrefix p ++ "Index out of bounds"
 
 -- ========================== LPPMonad utils ==================================
 
@@ -100,7 +105,7 @@ updateArr arr idx val p = do
                 then (newArr ++ [val], True, currIdx + 1)
                 else (newArr ++ [x], updated, currIdx + 1)
                 ) ([], False, 0) arr
-    unless updated $ throwError (getErrMsg IndexOutOfBounds, p)
+    unless updated $ throwError $ IndexOutOfBounds p
     return $ VArray updatedArr
 
 getEnv :: LPPMonad LPPEnv
@@ -137,7 +142,7 @@ getArrElem :: [Value] -> Integer -> BNFC'Position -> LPPMonad Value
 getArrElem arr idx p = getArrElemAux arr idx 0 p
     where
         getArrElemAux :: [Value] -> Integer -> Integer -> BNFC'Position -> LPPMonad Value
-        getArrElemAux [] _ _ p = throwError (getErrMsg IndexOutOfBounds, p)
+        getArrElemAux [] _ _ p = throwError $ IndexOutOfBounds p
         getArrElemAux (x:xs) idx currIdx p = 
             if idx == currIdx
                 then return x
@@ -381,11 +386,11 @@ evalMulOp :: MulOp -> Integer -> Integer -> LPPMonad Value
 evalMulOp (Times _) val1 val2 = return $ VInt (val1 * val2)
 evalMulOp (Div p) val1 val2 = do
     if val2 == 0 
-        then throwError (getErrMsg DivisionByZero, p) 
+        then throwError $ DivisionByZero p
         else return $ VInt (val1 `div` val2)
 evalMulOp (Mod p) val1 val2 = do
     if val2 == 0
-        then throwError (getErrMsg ModuloByZero, p)
+        then throwError $ ModuloByZero p
         else return $ VInt (val1 `mod` val2)
 
 evalRelOp :: RelOp -> Value -> Value -> LPPMonad Value
@@ -410,10 +415,10 @@ interpretProgram fundefs = do
     mapM_ (funToStore $ M.delete (Ident "main") env) fundefs
     execMain
 
-interpret :: Program -> IO (String, Int)
+interpret :: Program -> IO (String, Bool)
 interpret (Program _ fundefs) = do
     let runS = runStateT (interpretProgram fundefs) emptyState
     result <- runExceptT runS
     case result of
-        Left err -> return ("Error: " ++ show err, 1)
-        Right msg -> return ("NoError", 0)
+        Left err -> return (errMsg err, True)
+        Right msg -> return ("", False)

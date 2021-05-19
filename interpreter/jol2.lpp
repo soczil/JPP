@@ -13,7 +13,7 @@ int joljol() {
     return 128;
 }
 
-void main() {
+int main() {
     int x = 5;
     int y = 2;
     // x = "aaaaa";
@@ -66,7 +66,7 @@ void main() {
         print(a);
     }
 
-    print(10 < "a");
+    print(10 / 0);
 
     return 0;
 }

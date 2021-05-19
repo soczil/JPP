@@ -83,26 +83,28 @@ errMsgPrefix p = case p of
     Nothing -> "Static Error: "
     Just (l, c) -> "Static Error (line " ++ show l ++ ", column " ++ show c ++ "): "
 
-getErrMsg :: TCError -> String
-getErrMsg NoMainFunction =
+errMsg :: TCError -> String
+errMsg NoMainFunction = errMsgPrefix Nothing ++
     "No main function"
-getErrMsg (VarAlreadyDeclared id p) = 
+errMsg (VarAlreadyDeclared id p) = errMsgPrefix p ++
     "Variable [" ++ show id ++ "] already declared"
-getErrMsg (VarNotDeclared id p) = 
+errMsg (VarNotDeclared id p) = errMsgPrefix p ++
     "Variable/Function [" ++ show id ++ "] not declared"
-getErrMsg (FunAlreadyDeclared id p) = 
+errMsg (FunAlreadyDeclared id p) = errMsgPrefix p ++
     "Function [" ++ show id ++ "] already declared"
-getErrMsg (WrongType exp act p) = 
+errMsg (WrongType exp act p) = errMsgPrefix p ++
     "Found type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
-getErrMsg (WrongTCType exp act p) = 
+errMsg (WrongTCType exp act p) = errMsgPrefix p ++
     "Found type (" ++ showT act ++ ") instead of (" ++ show exp ++ ")"
-getErrMsg (FinalVarAssignment id p) = 
+errMsg (WrongMainType t p) = errMsgPrefix p ++
+    "Main type should be (int) instead of (" ++ showT t ++ ")"
+errMsg (FinalVarAssignment id p) = errMsgPrefix p ++
     "Cannot assign value to a read-only variable [" ++ show id ++ "]"
-getErrMsg (ReturnTypeError exp act p) = 
+errMsg (ReturnTypeError exp act p) = errMsgPrefix p ++
     "Found return type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
-getErrMsg (WrongArgumentType exp act p) = 
+errMsg (WrongArgumentType exp act p) = errMsgPrefix p ++
     "Found argument type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
-getErrMsg (WrongNumberOfArguments id exp act p) = 
+errMsg (WrongNumberOfArguments id exp act p) = errMsgPrefix p ++
     "Function (" ++ show id ++ ") takes " ++ show exp ++ " arguments instead of " ++ show act
 
 posFromType :: Type -> BNFC'Position
@@ -385,7 +387,7 @@ checkMain = do
         Nothing -> throwError NoMainFunction
         Just (FunInf (t, argTypes)) -> do
             unless (checkTCType TCInt t) $ throwError $ WrongMainType t (posFromType t)
-            unless (null argTypes) $ throwError $ WrongNumberOfArguments id 0 (length argTypes) (posFromType $ head argTypes)
+            unless (null argTypes) $ throwError $ WrongNumberOfArguments id (length argTypes) 0 (posFromType $ head argTypes)
 
 checkEveryTopFun :: [FunDef] -> TCMonad ()
 checkEveryTopFun fundefs = do
@@ -399,5 +401,5 @@ check (Program _ fundefs) = do
     let runS = runStateT (checkEveryTopFun fundefs) emptyState
     result <- runExceptT runS
     case result of
-        Left err -> return ("Error: " ++ getErrMsg err, True)
-        Right _ -> return ("Typecheck finished without errors", False)
+        Left err -> return (errMsg err, True)
+        Right _ -> return ("", False)

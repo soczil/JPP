@@ -13,7 +13,9 @@ parser: ${LANG_NAME}.cf
 	cd ${PARSER_BUILD} && \
 	${BNFC} --haskell --functor -d -m ../${LANG_NAME}.cf && \
 	make && \
-	mv ${LANG_NAME} ../
+	mv ${LANG_NAME} ../ && \
+	cd .. && \
+	rm -r -f ${PARSER_BUILD}
 
 interpreter: Main.hs Interpreter.hs Typechecker.hs
 	@echo "Compiling an interpreter..."

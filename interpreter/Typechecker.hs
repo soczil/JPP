@@ -23,17 +23,17 @@ data TCType = TCInt
             | TCBool
             | TCVoid
  
-data TCError = VarAlreadyDeclared Ident
-             | VarNotDeclared Ident
-             | FunAlreadyDeclared Ident
-             | WrongType String String
-             | MainFunError
-             | FinalVarAssignment
-             | ReturnTypeError
-             | WrongArgumentType
-             | WrongNumberOfArguments
-             | NotAnArray
-             | WTF
+data TCError = VarAlreadyDeclared Ident BNFC'Position
+             | VarNotDeclared Ident BNFC'Position
+             | FunAlreadyDeclared Ident BNFC'Position
+             | WrongType Type Type BNFC'Position
+             | WrongTCType TCType Type BNFC'Position
+             | WrongMainType Type BNFC'Position
+             | FinalVarAssignment Ident BNFC'Position
+             | ReturnTypeError Type Type BNFC'Position
+             | WrongArgumentType Type Type BNFC'Position
+             | WrongNumberOfArguments Ident Int Int BNFC'Position
+             | NotAnArray Ident
     deriving Show
 
 instance Show TCType where
@@ -70,17 +70,37 @@ checkTCType TCBool (Bool _) = True
 checkTCType TCVoid (Void _) = True
 checkTCType _ _ = False
 
-typeToString :: Type -> String
-typeToString (Int _) = "int"
-typeToString (Str _) = "string"
-typeToString (Bool _) = "bool"
-typeToString (Void _) = "void"
-typeToString (Array _ t) = "Array<" ++ typeToString t ++ ">"
+showT :: Type -> String
+showT (Int _) = show TCInt
+showT (Str _) = show TCStr
+showT (Bool _) = show TCBool
+showT (Void _) = show TCVoid
+showT (Array _ t) = "Array<" ++ showT t ++ ">"
+
+errMsgPrefix :: BNFC'Position -> String
+errMsgPrefix p = case p of
+    Nothing -> "Static Error: "
+    Just (l, c) -> "Static Error (line " ++ show l ++ ", column " ++ show c ++ "): "
 
 getErrMsg :: TCError -> String
-getErrMsg (VarAlreadyDeclared id) = "Variable [" ++ show id ++ "] already declared"
-getErrMsg (VarNotDeclared id) = "Variable/Function [" ++ show id ++ "] not declared"
-getErrMsg (FunAlreadyDeclared id) = "Function [" ++ show id ++ "] already declared"
+getErrMsg (VarAlreadyDeclared id p) = 
+    "Variable [" ++ show id ++ "] already declared"
+getErrMsg (VarNotDeclared id p) = 
+    "Variable/Function [" ++ show id ++ "] not declared"
+getErrMsg (FunAlreadyDeclared id p) = 
+    "Function [" ++ show id ++ "] already declared"
+getErrMsg (WrongType exp act p) = 
+    "Found type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
+getErrMsg (WrongTCType exp act p) = 
+    "Found type (" ++ showT act ++ ") instead of (" ++ show exp ++ ")"
+getErrMsg (FinalVarAssignment id p) = 
+    "Cannot assign value to a read-only variable [" ++ show id ++ "]"
+getErrMsg (ReturnTypeError exp act p) = 
+    "Found return type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
+getErrMsg (WrongArgumentType exp act p) = 
+    "Found argument type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
+getErrMsg (WrongNumberOfArguments id exp act p) = 
+    "Function (" ++ show id ++ ") takes " ++ show exp ++ " arguments instead of " ++ show act
 
 -- ========================== TCMonad utils ===================================
 
@@ -135,7 +155,7 @@ funToEnv (FunDef _ t id args _) = do
 
 assertType :: Type -> Type -> TCMonad ()
 assertType expected actual = 
-    unless (checkType expected actual) $ throwError (WrongType (typeToString expected) (typeToString actual))
+    unless (checkType expected actual) $ throwError (WrongType expected actual)
 
 assertExprType :: Expr -> Type -> TCMonad ()
 assertExprType e t = do
@@ -143,7 +163,8 @@ assertExprType e t = do
     assertType t actualType
 
 assertTCType :: TCType -> Type -> TCMonad ()
-assertTCType expected actual = unless (checkTCType expected actual) $ throwError WrongType
+assertTCType expected actual = 
+    unless (checkTCType expected actual) $ throwError $ WrongTCType expected actual
 
 assertExprTCType :: Expr -> TCType -> TCMonad ()
 assertExprTCType e t = do
@@ -167,15 +188,15 @@ checkStmt (ArrAss p id e1 e2) = do
 checkStmt (DStmt _ decl) = checkDecl decl
 checkStmt (Ass _ id e) = do
     VarInf (t, final) <- getVarInf id
-    checkFinal final
+    checkFinal id final
     assertExprType e t
 checkStmt (Inc _ id) = do
     VarInf (t, final) <- getVarInf id
-    checkFinal final
+    checkFinal id final
     assertTCType TCInt t
 checkStmt (Dec _ id) = do
     VarInf (t, final) <- getVarInf id
-    checkFinal final
+    checkFinal id final
     assertTCType TCInt t
 checkStmt (Ret _ e) = do
     t <- checkExpr e
@@ -209,7 +230,7 @@ checkStmt (ForIn _ id1 id2 block) = do
     (oldEnv, oldOldVars, oldRetType) <- get
     setNewOldVars
     t <- getVarType id2
-    unless (checkIfArray t) $ throwError NotAnArray
+    unless (checkIfArray t) $ throwError $ NotAnArray id2
     let (Array _ id1Type) = t
     varToEnv id1 id1Type True
     checkBlock block
@@ -237,8 +258,8 @@ checkBlockNewEnv block = do
     checkBlock block
     put (oldEnv, oldOldVars, oldRetType)
 
-checkFinal :: Bool -> TCMonad ()
-checkFinal final = when final $ throwError FinalVarAssignment
+checkFinal :: Ident -> Bool -> TCMonad ()
+checkFinal id final = when final $ throwError $ FinalVarAssignment id
 
 checkElif :: Elif -> TCMonad ()
 checkElif (Elif _ e block) = do
@@ -265,7 +286,7 @@ checkArrItem t (ArrInit _ id e1 e2) = do
 checkReturn :: Type -> TCMonad ()
 checkReturn t = do
     (_, _, retType) <- get
-    unless (checkType t retType) $ throwError ReturnTypeError
+    unless (checkType t retType) $ throwError $ ReturnTypeError t retType
 
 checkFun :: FunDef -> TCMonad ()
 checkFun (FunDef _ t id args block) = do
@@ -285,14 +306,16 @@ checkExpr (ELitTrue p) = return $ Bool p
 checkExpr (ELitFalse p) = return $ Bool p
 checkExpr (EApp _ id exprs) = do
     FunInf (t, argTypes) <- getVarInf id
-    when (length exprs /= length argTypes) $ throwError WrongNumberOfArguments
+    let argLen = length argTypes
+    let exprLen = length exprs
+    when (exprLen /= argLen) $ throwError $ WrongNumberOfArguments id argLen exprLen
     let argTypesAndExprs = zip argTypes exprs
     mapM_ checkFunArg argTypesAndExprs
     return t
 checkExpr (ArrRead _ id e) = do
     assertExprTCType e TCInt
     t <- getVarType id
-    unless (checkIfArray t) $ throwError NotAnArray
+    unless (checkIfArray t) $ throwError $ NotAnArray id
     let (Array _ arrType) = t
     return arrType
 checkExpr (EString p _) = return (Str p)
@@ -318,7 +341,7 @@ checkOpType e1 e2 t = do
 checkPostfixOpType :: Ident -> TCMonad Type
 checkPostfixOpType id = do
     VarInf (t, final) <- getVarInf id
-    checkFinal final
+    checkFinal id final
     assertTCType TCInt t
     return t
 
@@ -330,7 +353,7 @@ checkPrefixOpType e t = do
 checkFunArg :: (Type, Expr) -> TCMonad ()
 checkFunArg (t, e) = do
     exprType <- checkExpr e
-    unless (checkType t exprType) $ throwError WrongArgumentType
+    unless (checkType t exprType) $ throwError $ WrongArgumentType t exprType
 
 -- ========================== Running =========================================
 
@@ -346,9 +369,10 @@ checkIfInt _ = False
 
 checkMain :: TCMonad ()
 checkMain = do
-    FunInf (t, argTypes) <- getVarInf $ Ident "main"
-    unless (checkTCType TCInt t) $ throwError MainFunError
-    unless (null argTypes) $ throwError MainFunError
+    let id = Ident "main"
+    FunInf (t, argTypes) <- getVarInf id
+    unless (checkTCType TCInt t) $ throwError $ WrongMainType t
+    unless (null argTypes) $ throwError $ WrongNumberOfArguments id 0 (length argTypes)
 
 checkEveryTopFun :: [FunDef] -> TCMonad ()
 checkEveryTopFun fundefs = do
@@ -362,5 +386,5 @@ check (Program _ fundefs) = do
     let runS = runStateT (checkEveryTopFun fundefs) emptyState
     result <- runExceptT runS
     case result of
-        Left err -> return ("Error: " ++ show err, True)
+        Left err -> return ("Error: " ++ getErrMsg err, True)
         Right _ -> return ("Typecheck finished without errors", False)

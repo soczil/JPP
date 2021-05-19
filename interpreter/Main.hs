@@ -1,6 +1,6 @@
 module Main where
 
-import System.IO (hPutStrLn, stderr)
+import System.IO (hPutStrLn, stderr, getContents)
 import System.Environment (getArgs)
 import System.Exit (ExitCode(ExitFailure), exitWith)
 
@@ -36,7 +36,9 @@ main :: IO ()
 main = do
     args <- getArgs
     case args of
-        [] -> putStrLn "Podaj plik z programem interpretacji"
+        [] -> do
+            contents <- getContents
+            parseAndInterpret contents
         (x:_) -> do
             lppProgram <- readFile x
             parseAndInterpret lppProgram

@@ -1,0 +1,9 @@
+int main() {
+    int arr = 10;
+
+    for (x : arr) {
+        print(x);
+    }
+
+    return 0;
+}

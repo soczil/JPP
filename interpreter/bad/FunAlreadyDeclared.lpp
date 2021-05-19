@@ -1,0 +1,11 @@
+int main() {
+    int abc() {
+        return 123;
+    }
+    
+    return 0;
+}
+
+void abc() {
+    print("abc");
+}

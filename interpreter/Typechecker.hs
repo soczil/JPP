@@ -93,9 +93,9 @@ errMsg (VarNotDeclared id p) = errMsgPrefix p ++
 errMsg (FunAlreadyDeclared id p) = errMsgPrefix p ++
     "Function [" ++ show id ++ "] already declared"
 errMsg (WrongType exp act p) = errMsgPrefix p ++
-    "Found type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
+    "Wrong type - found type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
 errMsg (WrongTCType exp act p) = errMsgPrefix p ++
-    "Found type (" ++ showT act ++ ") instead of (" ++ show exp ++ ")"
+    "Wrong type - found type (" ++ showT act ++ ") instead of (" ++ show exp ++ ")"
 errMsg (WrongMainType t p) = errMsgPrefix p ++
     "Main type should be (int) instead of (" ++ showT t ++ ")"
 errMsg (FinalVarAssignment id p) = errMsgPrefix p ++
@@ -106,6 +106,8 @@ errMsg (WrongArgumentType exp act p) = errMsgPrefix p ++
     "Found argument type (" ++ showT act ++ ") instead of (" ++ showT exp ++ ")"
 errMsg (WrongNumberOfArguments id exp act p) = errMsgPrefix p ++
     "Function (" ++ show id ++ ") takes " ++ show exp ++ " arguments instead of " ++ show act
+errMsg (NotAnArray id p) = errMsgPrefix p ++
+    "(" ++ show id ++ ") is not an array"
 
 posFromType :: Type -> BNFC'Position
 posFromType (Int p) = p
@@ -298,7 +300,7 @@ checkArrItem t (ArrInit p id e1 e2) = do
 checkReturn :: Type -> BNFC'Position -> TCMonad ()
 checkReturn t p = do
     (_, _, retType) <- get
-    unless (checkType t retType) $ throwError $ ReturnTypeError t retType p
+    unless (checkType t retType) $ throwError $ ReturnTypeError retType t p
 
 checkFun :: FunDef -> TCMonad ()
 checkFun (FunDef _ t id args block) = do

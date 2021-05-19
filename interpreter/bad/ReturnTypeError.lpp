@@ -1,0 +1,8 @@
+int abc() {
+    return "napis";
+}
+
+int main() {
+    print(abc());
+    return 0;
+}

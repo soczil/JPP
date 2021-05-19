@@ -1,0 +1,6 @@
+int main() {
+    Array<int> arr = 10 ** [0];
+    print(arr[10]);
+
+    return 0;
+}

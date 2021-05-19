@@ -1,0 +1,10 @@
+int main() {
+    int x = 10;
+    string y = "5";
+
+    if (x == y) {
+        print("equal");
+    }
+
+    return 0;
+}

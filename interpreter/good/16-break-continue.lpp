@@ -1,0 +1,32 @@
+int main() {
+    for (int i = 5; i >= 0; i--) {
+        if (i == 3) {
+            continue;
+        }
+        print(i);
+    }
+
+    break;
+
+    int y = 0;
+    while (y <= 5) {
+        if (y == 3) {
+            break;
+        }
+        print(y);
+        y++;
+    }
+
+    continue;
+
+    Array<int> arr = 3 ** [123];
+    arr[1] = 5;
+    for (a : arr) {
+        if (a == 5) {
+            continue;
+        }
+        print(a);
+    }
+
+    return 0;
+}

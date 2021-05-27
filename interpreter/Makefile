@@ -1,4 +1,5 @@
 BNFC = /home/students/inf/PUBLIC/MRJP/bin/bnfc
+BNFC = bnfc
 GHC = ghc
 LANG_NAME = Lattepp
 PARSER_BUILD = parser_build

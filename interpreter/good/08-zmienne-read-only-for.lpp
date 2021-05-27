@@ -13,5 +13,11 @@ int main() {
         print(i);
     }
 
+    for (i = 5 downto 0) {
+        // niedozwolone zmienianie wartości i w bloku pętli,
+        // a wartość końca pętli liczona tylko raz
+        print(i);
+    }
+
     return 0;
 }

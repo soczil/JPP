@@ -240,6 +240,14 @@ checkStmt (For p init e exprs block) = do
     mapM_ (updateVarFinal p True) finalVars
     checkBlock block
     put (oldEnv, oldOldVars, oldRetType)
+checkStmt (PascalFor p id e1 keyword e2 block) = do
+    (oldEnv, oldOldVars, oldRetType) <- get
+    setNewOldVars
+    assertExprTCType e1 TCInt p
+    assertExprTCType e2 TCInt p
+    varToEnv id (Int BNFC'NoPosition) True p
+    checkBlock block
+    put (oldEnv, oldOldVars, oldRetType)
 checkStmt (ForIn p id1 id2 block) = do
     (oldEnv, oldOldVars, oldRetType) <- get
     setNewOldVars

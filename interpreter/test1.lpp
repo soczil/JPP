@@ -1,0 +1,14 @@
+int main() {
+    int x = 10;
+    // for(final int i = 0; i < x; i ++) {
+    //     print(x);
+    //     x = x + 1;
+    // }
+
+    for (i = 0 to x) {
+        print(i);
+        x = x + 1;
+    }
+
+    return 0;
+}

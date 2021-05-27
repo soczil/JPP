@@ -36,8 +36,6 @@ separator Arg "," ;
 
 FStmt. Stmt ::= FunDef ;
 
--- ArrDecl. Stmt ::= "Array" "<" Type ">" Ident "=" Expr "**" "[" Expr "]" ";" ;
-
 ArrDecl. Stmt ::= "Array" "<" Type ">" [ArrItem] ";" ;
 
 ArrNoInit. ArrItem ::= Ident ;
@@ -89,6 +87,12 @@ For. Stmt ::= "for" "(" ForInit Expr ";" [Expr] ")" Block ;
 ForInitExpr. ForInit ::= [Expr] ";" ;
 
 ForInitVar. ForInit ::= Decl ;
+
+PascalFor. Stmt ::= "for" "(" Ident "=" Expr PascalKey Expr ")" Block ;
+
+PascalTo. PascalKey ::= "to" ;
+
+PascalDownTo. PascalKey ::= "downto" ;
 
 ForIn. Stmt ::= "for" "(" Ident ":" Ident ")" Block ; 
 

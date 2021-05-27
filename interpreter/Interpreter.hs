@@ -162,6 +162,14 @@ funToStore env (FunDef _ t id args block) = do
     let argIds = foldr (\(Arg _ _ argId) acc -> argId : acc) [] args
     updateVarValue id $ VFun (t, argIds, block, env)
 
+getPascalForCondValue :: Value -> Value -> PascalKey -> LPPMonad Value
+getPascalForCondValue val1 val2 (PascalTo _) = evalRelOp (Lt BNFC'NoPosition) val1 val2
+getPascalForCondValue val1 val2 (PascalDownTo _) = evalRelOp (Gt BNFC'NoPosition) val1 val2
+
+updatePascalForVarValue :: Ident -> PascalKey -> LPPMonad ()
+updatePascalForVarValue id (PascalTo _) = execStmt (Inc BNFC'NoPosition id)
+updatePascalForVarValue id (PascalDownTo _) = execStmt (Dec BNFC'NoPosition id)
+
 -- ========================== Statements ======================================
 
 execStmt :: Stmt -> LPPMonad ()
@@ -227,6 +235,17 @@ execStmt (For _ init e exprs block) = do
     execLoop e block exprs
     setEnv oldEnv
     setLoopFlag oldLoopFlag
+execStmt (PascalFor _ id e1 keyword e2 block) = do
+    oldEnv <- getEnv
+    oldLoopFlag <- getLoopFlag
+    varToEnv id
+    val1 <- evalExpr e1
+    updateVarValue id val1
+    val2 <- evalExpr e2
+    execPascalForLoop id val2 keyword block
+    setEnv oldEnv
+    setLoopFlag oldLoopFlag
+    return ()
 execStmt (ForIn _ id1 id2 block) = do
     oldEnv <- getEnv
     oldLoopFlag <- getLoopFlag
@@ -307,6 +326,18 @@ execLoop e1 block exprs = do
         when (isNothing loopFlag || continueLoopFlag loopFlag) $ do
             mapM_ evalExpr exprs
             execLoop e1 block exprs
+
+execPascalForLoop :: Ident -> Value -> PascalKey -> Block -> LPPMonad ()
+execPascalForLoop id val keyword block = do
+    setLoopFlag Nothing
+    currVal <- getVarValue id
+    VBool cond <- getPascalForCondValue currVal val keyword
+    when cond $ do
+        execLoopBlock block
+        loopFlag <- getLoopFlag
+        when (isNothing loopFlag || continueLoopFlag loopFlag) $ do
+            updatePascalForVarValue id keyword
+            execPascalForLoop id val keyword block
 
 execForInLoop :: Ident -> Block -> [Value] -> LPPMonad ()
 execForInLoop _ _ [] = return ()

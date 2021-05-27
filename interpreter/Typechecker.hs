@@ -188,7 +188,7 @@ assertExprTCType e t p = do
 -- ========================== Statements ======================================
 
 checkStmt :: Stmt -> TCMonad ()
-checkStmt (BStmt _ block) = checkBlock block
+checkStmt (BStmt _ block) = checkBlockNewEnv block
 checkStmt (Empty _) = return ()
 checkStmt (FStmt _ fundef) = do
     funToEnv fundef

@@ -43,7 +43,31 @@ makeArray(N, Array) :-
     Array = [0 | T],
     makeArray(M, T).
 
-% execStmt(assign(X, Expr), StateIn, Pid, StateOut) :-
+% execStmt(assign(X, E), StateIn, Pid, StateOut) :-
+
+setNewValue(Var, NewVal, [Vars, Arrays, Positions], StateOut) :-
+    setVarValue(Var, NewVal, Vars, NewVars),
+    StateOut = [NewVars, Arrays, Positions].
+setNewValue(array(Id, E), NewVal, [Vars, Arrays, Positions], StateOut) :-
+    evalExpr(E, [Vars, Arrays, Positions], Idx),
+    getVarValue(Id, Arrays, Arr),
+    setArrElem(Idx, NewVal, Arr, NewArr),
+    setVarValue(Id, NewArr, Arrays, NewArrays),
+    StateOut = [Vars, NewArrays, Positions].
+
+setVarValue(_, NewVal, [(Id, _)], [(Id, NewVal)]) :- !. % niby niepotrzebne!!!!!!!!
+setVarValue(Var, NewVal, [(Id, Val) | T], Res) :-
+    (   Id \= Var
+    ->  Res = [(Id, Val) | ResT],
+        setVarValue(Var, NewVal, T, ResT)
+    ;   Res = [(Id, NewVal) | T]
+    ).
+
+setArrElem(0, NewVal, [_ | T], [NewVal | T]) :- !.
+setArrElem(Idx, NewVal, [H | T], Res) :-
+    NewIdx is Idx - 1,
+    Res = [H | ResT],
+    setArrElem(NewIdx, NewVal, T, ResT).
 
 evalExpr(X, _, X) :-
     number(X),
@@ -52,6 +76,11 @@ evalExpr(Var, [Vars, _, _], Res) :-
     member((Var, _), Vars),
     getVarValue(Var, Vars, Res),
     !.
+evalExpr(array(Id, E), [Vars, Arrays, Positions], Res) :-
+    member((Id, _), Arrays),
+    getVarValue(Id, Arrays, Arr),
+    evalExpr(E, [Vars, Arrays, Positions], Idx),
+    getArrElem(Idx, Arr, Res).
 evalExpr(E1 + E2, State, Res) :-
     evalExpr(E1, State, Res1),
     evalExpr(E2, State, Res2),
@@ -82,9 +111,14 @@ evalBoolExpr(E1 = E2, State) :-
 %     evalExpr(E2, State, Res2),
 %     Res1 =\= Res2.
 
-getVarValue(_, [(_, Val)], Val) :- !.
+getVarValue(_, [(_, Val)], Val) :- !. % niby niepotrzebne!!!!!!!!
 getVarValue(Var, [(Id, Val) | T], Res) :-
     (   Var \= Id
     ->  getVarValue(Var, T, Res)
     ;   Res = Val
     ).
+
+getArrElem(0, [X | _], X) :- !.
+getArrElem(Idx, [_ | T], Res) :-
+    NewIdx is Idx - 1,
+    getArrElem(NewIdx, T, Res).

@@ -43,7 +43,25 @@ makeArray(N, Array) :-
     Array = [0 | T],
     makeArray(M, T).
 
-% execStmt(assign(X, E), StateIn, Pid, StateOut) :-
+execStmt(assign(Var, Expr), StateIn, Pid, StateOut) :-
+    evalExpr(Expr, StateIn, Val),
+    setNewValue(Var, Val, StateIn, [Vars, Arrays, Positions]),
+    getArrElem(Pid, Positions, CurrentPos),
+    NewPos is CurrentPos + 1,
+    setArrElem(Pid, NewPos, Positions, NewPositions),
+    StateOut = [Vars, Arrays, NewPositions].
+execStmt(goto(N), [Vars, Arrays, Positions], Pid, StateOut) :-
+    setArrElem(Pid, N, Positions, NewPositions),
+    StateOut = [Vars, Arrays, NewPositions].
+execStmt(condGoto(BExpr, N), [Vars, Arrays, Positions], Pid, StateOut) :-
+    evalBoolExpr(BExpr, [Vars, Arrays, Positions]),
+    setArrElem(Pid, N, Positions, NewPositions),
+    StateOut = [Vars, Arrays, NewPositions].
+execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
+    getArrElem(Pid, Positions, CurrentPos),
+    NewPos is CurrentPos + 1,
+    setArrElem(Pid, NewPos, Positions, NewPositions),
+    StateOut = [Vars, Arrays, NewPositions].
 
 setNewValue(Var, NewVal, [Vars, Arrays, Positions], StateOut) :-
     setVarValue(Var, NewVal, Vars, NewVars),

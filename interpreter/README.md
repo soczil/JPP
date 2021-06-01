@@ -1,5 +1,25 @@
 # JPP interpreter (Latte++)
 
+## Zmiany w stosunku do poprzedniej wersji
+
+1. Dodałem nową pętlę for (taką jak w Pascalu), w której wartość kon jest
+liczona tylko raz - przed wejściem do pętli. Sposób użycia:
+    ```
+    for (i = 0 to 10) {
+        print(i);
+    }
+    ```
+   
+    ```
+    for (i = 10 downto 0) {
+        print(i);
+    }
+    ```
+
+2. W Typecheckerze przy sprawdzaniu instrukcji bloku podmieniłem wywołanie
+funkcji `checkBlock` na `checkBlockNewEnv`, dzięki czemu przesłanianie
+w instrukcji bloku już działa.
+
 ## Interpreter
 
 W rozwiązaniu przechowuję stan w monadzie `State`. Stan jest krotką

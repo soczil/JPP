@@ -23,8 +23,14 @@ readTerms(Filename, _) :-
 initState([Vars, Arrays, _], N, InitialState) :-
     initVars(Vars, VList),
     initArrays(N, Arrays, AList),
-    makeArray(N, Positions),
+    makeArray(N, 1, Positions),
     InitialState = [VList, AList, Positions].
+
+step(Program, [Vars, Arrays, Positions], Pid, StateOut) :-
+    getArrElem(Pid, Positions, CurrentPos),
+    StmtIdx is CurrentPos - 1,
+    getArrElem(StmtIdx, Program, CurrentStmt),
+    execStmt(CurrentStmt, [Vars, Arrays, Positions], Pid, StateOut).
 
 initVars([], []).
 initVars([H | T], VList) :-
@@ -33,19 +39,19 @@ initVars([H | T], VList) :-
 
 initArrays(_, [], []) :- !. % odciecie!!!!!!!!!!!!!!!!!!!!
 initArrays(N, [H | T], AList) :-
-    makeArray(N, Array),
+    makeArray(N, 0, Array),
     AList = [(H, Array) | ATail],
     initArrays(N, T, ATail).
 
-makeArray(0, []) :- !. % odciecie!!!!!!!!!!!!!!!!!!!!!
-makeArray(N, Array) :-
+makeArray(0, _, []) :- !. % odciecie!!!!!!!!!!!!!!!!!!!!!
+makeArray(N, X, Array) :-
     M is N - 1,
-    Array = [0 | T],
-    makeArray(M, T).
+    Array = [X | T],
+    makeArray(M, X, T).
 
 execStmt(assign(Var, Expr), StateIn, Pid, StateOut) :-
-    evalExpr(Expr, StateIn, Val),
-    setNewValue(Var, Val, StateIn, [Vars, Arrays, Positions]),
+    evalExpr(Expr, StateIn, Pid, Val),
+    setNewValue(Var, Val, StateIn, Pid, [Vars, Arrays, Positions]),
     getArrElem(Pid, Positions, CurrentPos),
     NewPos is CurrentPos + 1,
     setArrElem(Pid, NewPos, Positions, NewPositions),
@@ -63,11 +69,11 @@ execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
     setArrElem(Pid, NewPos, Positions, NewPositions),
     StateOut = [Vars, Arrays, NewPositions].
 
-setNewValue(Var, NewVal, [Vars, Arrays, Positions], StateOut) :-
+setNewValue(Var, NewVal, [Vars, Arrays, Positions], _, StateOut) :-
     setVarValue(Var, NewVal, Vars, NewVars),
     StateOut = [NewVars, Arrays, Positions].
-setNewValue(array(Id, E), NewVal, [Vars, Arrays, Positions], StateOut) :-
-    evalExpr(E, [Vars, Arrays, Positions], Idx),
+setNewValue(array(Id, E), NewVal, [Vars, Arrays, Positions], Pid, StateOut) :-
+    evalExpr(E, [Vars, Arrays, Positions], Pid, Idx),
     getVarValue(Id, Arrays, Arr),
     setArrElem(Idx, NewVal, Arr, NewArr),
     setVarValue(Id, NewArr, Arrays, NewArrays),
@@ -87,46 +93,47 @@ setArrElem(Idx, NewVal, [H | T], Res) :-
     Res = [H | ResT],
     setArrElem(NewIdx, NewVal, T, ResT).
 
-evalExpr(X, _, X) :-
+evalExpr(pid, _, Pid, Pid) :- !.
+evalExpr(X, _, _, X) :-
     number(X),
     !.
-evalExpr(Var, [Vars, _, _], Res) :-
+evalExpr(Var, [Vars, _, _], _, Res) :-
     member((Var, _), Vars),
     getVarValue(Var, Vars, Res),
     !.
-evalExpr(array(Id, E), [Vars, Arrays, Positions], Res) :-
+evalExpr(array(Id, E), [Vars, Arrays, Positions], Pid, Res) :-
     member((Id, _), Arrays),
     getVarValue(Id, Arrays, Arr),
-    evalExpr(E, [Vars, Arrays, Positions], Idx),
+    evalExpr(E, [Vars, Arrays, Positions], Pid, Idx),
     getArrElem(Idx, Arr, Res).
-evalExpr(E1 + E2, State, Res) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalExpr(E1 + E2, State, Pid, Res) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res is Res1 + Res2.
-evalExpr(E1 - E2, State, Res) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalExpr(E1 - E2, State, Pid, Res) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res is Res1 - Res2.
-evalExpr(E1 * E2, State, Res) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalExpr(E1 * E2, State, Pid, Res) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res is Res1 * Res2.
-evalExpr(E1 / E2, State, Res) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalExpr(E1 / E2, State, Pid, Res) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res is Res1 / Res2.
 
-evalBoolExpr(E1 < E2, State) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalBoolExpr(E1 < E2, Pid, State) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res1 < Res2.
-evalBoolExpr(E1 = E2, State) :-
-    evalExpr(E1, State, Res1),
-    evalExpr(E2, State, Res2),
+evalBoolExpr(E1 = E2, Pid, State) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
     Res1 =:= Res2.
-% evalBoolExpr(E1 <> E2, State) :-
-%     evalExpr(E1, State, Res1),
-%     evalExpr(E2, State, Res2),
+% evalBoolExpr(E1 <> E2, Pid, State) :-
+%     evalExpr(E1, State, Pid, Res1),
+%     evalExpr(E2, State, Pid, Res2),
 %     Res1 =\= Res2.
 
 getVarValue(_, [(_, Val)], Val) :- !. % niby niepotrzebne!!!!!!!!

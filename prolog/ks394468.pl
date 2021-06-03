@@ -1,9 +1,17 @@
 % Karol Soczewica ks394468
 
+% Stan systemu:
+% Lista trzech elementów:
+%   1. lista par (nazwa zmiennej, wartość);
+%   2. lista par (nazwa tablicy, tablica (czyli lista));
+%   3. lista pozycji każdego z procesów.
+
 :- ensure_loaded(library(lists)).
 
 :- op(700, xfx, <>).
 
+% getSection(+Stmts, -Sections) == Sections to lista pozycji, na których
+% występuje instrukcja sekcji krytycznej.
 getSections(Stmts, Sections) :- getSections(Stmts, 1, Sections).
 getSections([], _, []).
 getSections([Stmt | T], N, Sections) :-
@@ -94,6 +102,8 @@ everyProcessStep(N, Stmts, StateIn, StatesOut) :-
     StatesOut = [NewState | T],
     everyProcessStep(M, Stmts, StateIn, T).
 
+% readTerms(+Filename, -Program) == Program jest reprezentacją programu
+% wczytaną z pliku o nazwie Filename
 readTerms(Filename, Program) :- 
     set_prolog_flag(fileerrors, off),
     see(Filename),
@@ -106,35 +116,51 @@ readTerms(Filename, Program) :-
 readTerms(Filename, _) :-
     format('Error: plik ~p nie istnieje ~n', [Filename]).
 
+% initState(+Terms, +N, -InitialState) == InitialState jest stanem początkowym
+% programu powstałym z zainicjowania zmiennych i tablic z Terms, gdzie
+% Terms to lista [Zmienne, Tablice, Instrukcje], a N to liczba procesów
 initState([Vars, Arrays, _], N, InitialState) :-
     initVars(Vars, VList),
     initArrays(N, Arrays, AList),
     makeArray(N, 1, Positions),
     InitialState = [VList, AList, Positions].
 
+% step(+Program, +StateIn, +Pid, -StateOut) == StateOut to stan powstały
+% z wykonania bieżącej instrukcji z Programu (czyli listy instrukcji)
+% dla procesu o identyfikatorze Pid w stanie StateIn
 step(Program, [Vars, Arrays, Positions], Pid, StateOut) :-
     getArrElem(Pid, Positions, CurrentPos),
     StmtIdx is CurrentPos - 1,
     getArrElem(StmtIdx, Program, CurrentStmt),
     execStmt(CurrentStmt, [Vars, Arrays, Positions], Pid, StateOut).
 
+% initVars(+Vars, -VList) == VList jest listą par (nazwa zmiennej, 0)
+% powstałą z identyfikatorów zmiennych z listy Vars
 initVars([], []).
 initVars([H | T], VList) :-
     VList = [(H, 0) | VTail],
     initVars(T, VTail).
 
-initArrays(_, [], []) :- !. % odciecie!!!!!!!!!!!!!!!!!!!!
+% initArrays(+N, +Arrays, -AList) == AList jest listą par
+% (nazwa tablicy, lista o długości N wypełniona zerami) powstałą
+% z identyfikatorów tablic z listy Arrays
+initArrays(_, [], []) :- !.
 initArrays(N, [H | T], AList) :-
     makeArray(N, 0, Array),
     AList = [(H, Array) | ATail],
     initArrays(N, T, ATail).
 
-makeArray(0, _, []) :- !. % odciecie!!!!!!!!!!!!!!!!!!!!!
+% makeArray(+N, +X, -Array) == Array to lista długości N 
+% wypełniona elementami X
+makeArray(0, _, []) :- !.
 makeArray(N, X, Array) :-
     M is N - 1,
     Array = [X | T],
     makeArray(M, X, T).
 
+% execStmt(+Stmt, +StateIn, +Pid, -StateOut) == StateOut jest stanem
+% powstałym z wykonania instrukcji Stmt w stanie StateIn dla procesu
+% o identyfikatorze Pid
 execStmt(assign(Var, Expr), StateIn, Pid, StateOut) :-
     evalExpr(Expr, StateIn, Pid, Val),
     setNewValue(Var, Val, StateIn, Pid, [Vars, Arrays, Positions]),
@@ -185,6 +211,9 @@ setArrElem(Idx, NewVal, [H | T], Res) :-
     Res = [H | ResT],
     setArrElem(NewIdx, NewVal, T, ResT).
 
+% evalExpr(+Expr, +State, +Pid, -Res) == Res to wartość
+% wyrażenia arytmetycznego Expr w stanie State dla procesu
+% o identyfikatorze Pid
 evalExpr(pid, _, Pid, Pid) :- !.
 evalExpr(X, _, _, X) :-
     number(X),
@@ -215,6 +244,9 @@ evalExpr(E1 / E2, State, Pid, Res) :-
     evalExpr(E2, State, Pid, Res2),
     Res is Res1 / Res2.
 
+% evalBoolExpr(+BExp, +Pid, +State) == wynikiem jest true lub false
+% w zależności od tego czy spełnione jest wyrażenie logiczne BExp
+% w stanie State dla procesu o identyfikatorze Pid
 evalBoolExpr(E1 < E2, Pid, State) :-
     evalExpr(E1, State, Pid, Res1),
     evalExpr(E2, State, Pid, Res2),
@@ -228,13 +260,17 @@ evalBoolExpr(E1 <> E2, Pid, State) :-
     evalExpr(E2, State, Pid, Res2),
     Res1 =\= Res2.
 
-getVarValue(_, [(_, Val)], Val) :- !. % niby niepotrzebne!!!!!!!!
+% getVarValue(+Var, +Vars, -Res) == Res jest wartością zmiennej Var
+% w liście Vars
+getVarValue(_, [(_, Val)], Val) :- !.
 getVarValue(Var, [(Id, Val) | T], Res) :-
     (   Var \= Id
     ->  getVarValue(Var, T, Res)
     ;   Res = Val
     ).
 
+% getArrElem(+Idx, +Arr, -Res) == Res jest elementem listy Arr
+% pod indeksem Idx
 getArrElem(0, [X | _], X) :- !.
 getArrElem(Idx, [_ | T], Res) :-
     NewIdx is Idx - 1,

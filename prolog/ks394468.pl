@@ -1,12 +1,8 @@
 % Karol Soczewica ks394468
 
-ensure_loaded(library(lists)).
+:- ensure_loaded(library(lists)).
 
-% usunac!!!!!!!!!!!!!!!!!!!!!!!!!
-showZiomek([]) :- write('\n').
-showZiomek([H | T]) :-
-    format('~p ', H),
-    showZiomek(T).
+:- op(700, xfx, <>).
 
 getSections(Stmts, Sections) :- getSections(Stmts, 1, Sections).
 getSections([], _, []).
@@ -19,12 +15,21 @@ getSections([Stmt | T], N, Sections) :-
     ).
 
 verify(N, Filename) :-
-    write(N), % sprawdzić N !!!!!!!!!!!!!!!!!!!!!!!!!
-    write('\n'),
+    number(N),
+    N > 0,
+    !,
     readTerms(Filename, [Vars, Arrays, Stmts]),
     initState([Vars, Arrays, Stmts], N, InitialState),
     getSections(Stmts, Sections),
-    verify(N, Stmts, Sections, [InitialState], []).
+    (   verify(N, Stmts, Sections, [InitialState])
+    ->  writeSafe()
+    ;   true
+    ).
+verify(N, _) :-
+    format('Error: parametr ~p powinien byc liczba > 0~n', [N]).
+
+verify(N, Stmts, Sections, States) :-
+    verify(N, Stmts, Sections, States, []).
 
 verify(_, _, _, [], _) :- !.
 verify(N, Stmts, Sections, [StateIn | T], Visited) :-
@@ -40,9 +45,16 @@ verify(N, Stmts, Sections, [[Vars, Arrays, Positions] | T], Visited) :-
         append(T, StatesOut, NotVisited),
         verify(N, Stmts, Sections, NotVisited, [StateIn | Visited])
     ;   getError(InSections, Error),
-        write(Error),
+        writeUnsafe(Error),
         false
     ).
+
+writeSafe() :-
+    format('Program jest poprawny (bezpieczny).~n').
+
+writeUnsafe([P1, P2 | _]) :-
+    format('Program jest niepoprawny.~n'),
+    format('Procesy w sekcji: ~p, ~p.~n', [P1, P2]).
 
 getError([], []).
 getError([InSection | T], Error) :-
@@ -211,10 +223,10 @@ evalBoolExpr(E1 = E2, Pid, State) :-
     evalExpr(E1, State, Pid, Res1),
     evalExpr(E2, State, Pid, Res2),
     Res1 =:= Res2.
-% evalBoolExpr(E1 <> E2, Pid, State) :-
-%     evalExpr(E1, State, Pid, Res1),
-%     evalExpr(E2, State, Pid, Res2),
-%     Res1 =\= Res2.
+evalBoolExpr(E1 <> E2, Pid, State) :-
+    evalExpr(E1, State, Pid, Res1),
+    evalExpr(E2, State, Pid, Res2),
+    Res1 =\= Res2.
 
 getVarValue(_, [(_, Val)], Val) :- !. % niby niepotrzebne!!!!!!!!
 getVarValue(Var, [(Id, Val) | T], Res) :-

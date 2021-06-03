@@ -2,11 +2,45 @@
 
 ensure_loaded(library(lists)).
 
+% usunac!!!!!!!!!!!!!!!!!!!!!!!!!
+showZiomek([]) :- write('\n').
+showZiomek([H | T]) :-
+    format('~p ', H),
+    showZiomek(T).
+
 verify(N, Filename) :-
-    write(N),
+    write(N), % sprawdzić N !!!!!!!!!!!!!!!!!!!!!!!!!
     write('\n'),
     readTerms(Filename, Program),
     initState(Program, N, InitialState).
+
+verify(N, Stmts, [Vars, Arrays, Positions], Visited, NewVisited) :-
+    showZiomek(Positions),
+    everyProcessStep(Stmts, N, [Vars, Arrays, Positions], StatesOut),
+    checkIfVisited(StatesOut, Visited, NewVisited, NotVisited),
+    verifyNotVisited(NotVisited, N, Stmts, NewVisited, AllVisited),
+    NewVisited = AllVisited.
+
+verifyNotVisited([], _, Visited, Visited).
+verifyNotVisited([State | T], N, Stmts, Visited, AllVisited) :-
+    verify(N, Stmts, State, Visited, NewVisited),
+    verifyNotVisited(T, N, Stmts, NewVisited, AllVisited).
+
+checkIfVisited([], Visited, Visited, []).
+checkIfVisited([State | T], Visited, NewVisited, NotVisited) :-
+    (   member(State, Visited)
+    ->  checkIfVisited(T, Visited, NewVisited, NotVisited)    
+    ;   NewVisited = [State | NewVT],
+        NotVisited = [State | NotVT],
+        checkIfVisited(T, Visited, NewVT, NotVT)
+    ).
+
+everyProcessStep(_, 0, _, []) :- !.
+everyProcessStep(Stmts, N, StateIn, StatesOut) :-
+    M is N - 1,
+    step(Stmts, StateIn, M, NewState),
+    StatesOut = [NewState | T],
+    everyProcessStep(Stmts, M, StateIn, T).
 
 readTerms(Filename, Program) :- 
     set_prolog_flag(fileerrors, off),

@@ -8,46 +8,69 @@ showZiomek([H | T]) :-
     format('~p ', H),
     showZiomek(T).
 
+getSections(Stmts, Sections) :- getSections(Stmts, 1, Sections).
+getSections([], _, []).
+getSections([Stmt | T], N, Sections) :-
+    M is N + 1,
+    (   Stmt = sekcja
+    ->  Sections = [N | SecT],
+        getSections(T, M, SecT)
+    ;   getSections(T, M, Sections)
+    ).
+
 verify(N, Filename) :-
     write(N), % sprawdzić N !!!!!!!!!!!!!!!!!!!!!!!!!
     write('\n'),
     readTerms(Filename, Program),
     initState(Program, N, InitialState).
 
-% verify(N, Stmts, [Vars, Arrays, Positions], Visited, NewVisited) :-
-%     showZiomek(Positions),
-%     everyProcessStep(Stmts, N, [Vars, Arrays, Positions], StatesOut),
-%     checkIfVisited(StatesOut, Visited, NewVisited, NotVisited),
-%     verifyNotVisited(NotVisited, N, Stmts, NewVisited, AllVisited),
-%     NewVisited = AllVisited.
-
-% verifyNotVisited([], _, Visited, Visited).
-% verifyNotVisited([State | T], N, Stmts, Visited, AllVisited) :-
-%     verify(N, Stmts, State, Visited, NewVisited),
-%     verifyNotVisited(T, N, Stmts, NewVisited, AllVisited).
-
-verify(_, _, [], _) :- !.
-verify(N, Stmts, [StateIn | T], Visited) :-
+verify(_, _, _, [], _) :- !.
+verify(N, Stmts, Sections, [StateIn | T], Visited) :-
     member(StateIn, Visited),
-    verify(N, Stmts, T, Visited),
+    verify(N, Stmts, Sections, T, Visited),
     !.
-verify(N, Stmts, [[Vars, Arrays, Positions] | T], Visited) :-
+verify(N, Stmts, Sections, [[Vars, Arrays, Positions] | T], Visited) :-
     StateIn = [Vars, Arrays, Positions],
     \+ member(StateIn, Visited),
-    showZiomek(Vars),
-    showZiomek(Positions),
-    write('-----------------------------\n'),
-    everyProcessStep(N, Stmts, StateIn, StatesOut),
-    append(T, StatesOut, NotVisited),
-    verify(N, Stmts, NotVisited, [StateIn | Visited]).
+    checkSections(Sections, Positions, InSections),
+    (   safeProgram(InSections)
+    ->  everyProcessStep(N, Stmts, StateIn, StatesOut),
+        append(T, StatesOut, NotVisited),
+        verify(N, Stmts, Sections, NotVisited, [StateIn | Visited])
+    ;   getError(InSections, Error),
+        write(Error),
+        false
+    ).
 
-checkIfVisited([], Visited, Visited, []).
-checkIfVisited([State | T], Visited, NewVisited, NotVisited) :-
-    (   member(State, Visited)
-    ->  checkIfVisited(T, Visited, NewVisited, NotVisited)    
-    ;   NewVisited = [State | NewVT],
-        NotVisited = [State | NotVT],
-        checkIfVisited(T, Visited, NewVT, NotVT)
+getError([], []).
+getError([InSection | T], Error) :-
+    length(InSection, Len),
+    (   Len > 1
+    ->  Error = InSection
+    ;   getError(T, Error)
+    ).
+
+safeProgram([]).
+safeProgram([InSection | T]) :-
+    length(InSection, Len),
+    Len =< 1,
+    safeProgram(T).
+
+checkSections([], _, []).
+checkSections([Section | T], Positions, InSections) :-
+    getProcessesInSection(Section, Positions, Processes),
+    InSections = [Processes | IST],
+    checkSections(T, Positions, IST).
+
+getProcessesInSection(Section, Positions, Processes) :-
+    getProcessesInSection(Section, Positions, 0, Processes).
+getProcessesInSection(_, [], _, []) :- !.
+getProcessesInSection(Section, [Pos | T], N, Processes) :-
+    M is N + 1,
+    (   Pos =:= Section
+    ->  Processes = [N | ProcT],
+        getProcessesInSection(Section, T, M, ProcT)
+    ;   getProcessesInSection(Section, T, M, Processes)
     ).
 
 everyProcessStep(0, _, _, []) :- !.
@@ -109,9 +132,11 @@ execStmt(goto(N), [Vars, Arrays, Positions], Pid, StateOut) :-
     setArrElem(Pid, N, Positions, NewPositions),
     StateOut = [Vars, Arrays, NewPositions].
 execStmt(condGoto(BExpr, N), [Vars, Arrays, Positions], Pid, StateOut) :-
-    evalBoolExpr(BExpr, [Vars, Arrays, Positions]),
-    setArrElem(Pid, N, Positions, NewPositions),
-    StateOut = [Vars, Arrays, NewPositions].
+    (   evalBoolExpr(BExpr, Pid, [Vars, Arrays, Positions])
+    ->  setArrElem(Pid, N, Positions, NewPositions),
+        StateOut = [Vars, Arrays, NewPositions]
+    ;   StateOut = [Vars, Arrays, Positions]
+    ).
 execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
     getArrElem(Pid, Positions, CurrentPos),
     NewPos is CurrentPos + 1,

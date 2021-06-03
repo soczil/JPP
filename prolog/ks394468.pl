@@ -14,17 +14,32 @@ verify(N, Filename) :-
     readTerms(Filename, Program),
     initState(Program, N, InitialState).
 
-verify(N, Stmts, [Vars, Arrays, Positions], Visited, NewVisited) :-
-    showZiomek(Positions),
-    everyProcessStep(Stmts, N, [Vars, Arrays, Positions], StatesOut),
-    checkIfVisited(StatesOut, Visited, NewVisited, NotVisited),
-    verifyNotVisited(NotVisited, N, Stmts, NewVisited, AllVisited),
-    NewVisited = AllVisited.
+% verify(N, Stmts, [Vars, Arrays, Positions], Visited, NewVisited) :-
+%     showZiomek(Positions),
+%     everyProcessStep(Stmts, N, [Vars, Arrays, Positions], StatesOut),
+%     checkIfVisited(StatesOut, Visited, NewVisited, NotVisited),
+%     verifyNotVisited(NotVisited, N, Stmts, NewVisited, AllVisited),
+%     NewVisited = AllVisited.
 
-verifyNotVisited([], _, Visited, Visited).
-verifyNotVisited([State | T], N, Stmts, Visited, AllVisited) :-
-    verify(N, Stmts, State, Visited, NewVisited),
-    verifyNotVisited(T, N, Stmts, NewVisited, AllVisited).
+% verifyNotVisited([], _, Visited, Visited).
+% verifyNotVisited([State | T], N, Stmts, Visited, AllVisited) :-
+%     verify(N, Stmts, State, Visited, NewVisited),
+%     verifyNotVisited(T, N, Stmts, NewVisited, AllVisited).
+
+verify(_, _, [], _) :- !.
+verify(N, Stmts, [StateIn | T], Visited) :-
+    member(StateIn, Visited),
+    verify(N, Stmts, T, Visited),
+    !.
+verify(N, Stmts, [[Vars, Arrays, Positions] | T], Visited) :-
+    StateIn = [Vars, Arrays, Positions],
+    \+ member(StateIn, Visited),
+    showZiomek(Vars),
+    showZiomek(Positions),
+    write('-----------------------------\n'),
+    everyProcessStep(N, Stmts, StateIn, StatesOut),
+    append(T, StatesOut, NotVisited),
+    verify(N, Stmts, NotVisited, [StateIn | Visited]).
 
 checkIfVisited([], Visited, Visited, []).
 checkIfVisited([State | T], Visited, NewVisited, NotVisited) :-
@@ -35,12 +50,12 @@ checkIfVisited([State | T], Visited, NewVisited, NotVisited) :-
         checkIfVisited(T, Visited, NewVT, NotVT)
     ).
 
-everyProcessStep(_, 0, _, []) :- !.
-everyProcessStep(Stmts, N, StateIn, StatesOut) :-
+everyProcessStep(0, _, _, []) :- !.
+everyProcessStep(N, Stmts, StateIn, StatesOut) :-
     M is N - 1,
     step(Stmts, StateIn, M, NewState),
     StatesOut = [NewState | T],
-    everyProcessStep(Stmts, M, StateIn, T).
+    everyProcessStep(M, Stmts, StateIn, T).
 
 readTerms(Filename, Program) :- 
     set_prolog_flag(fileerrors, off),

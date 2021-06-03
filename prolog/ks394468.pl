@@ -21,8 +21,10 @@ getSections([Stmt | T], N, Sections) :-
 verify(N, Filename) :-
     write(N), % sprawdzić N !!!!!!!!!!!!!!!!!!!!!!!!!
     write('\n'),
-    readTerms(Filename, Program),
-    initState(Program, N, InitialState).
+    readTerms(Filename, [Vars, Arrays, Stmts]),
+    initState([Vars, Arrays, Stmts], N, InitialState),
+    getSections(Stmts, Sections),
+    verify(N, Stmts, Sections, [InitialState], []).
 
 verify(_, _, _, [], _) :- !.
 verify(N, Stmts, Sections, [StateIn | T], Visited) :-
@@ -84,7 +86,7 @@ readTerms(Filename, Program) :-
     set_prolog_flag(fileerrors, off),
     see(Filename),
     !,
-    read(vars(Vars)),
+    read(variables(Vars)),
     read(arrays(Arrays)),
     read(program(Stmts)),
     Program = [Vars, Arrays, Stmts],
@@ -135,7 +137,10 @@ execStmt(condGoto(BExpr, N), [Vars, Arrays, Positions], Pid, StateOut) :-
     (   evalBoolExpr(BExpr, Pid, [Vars, Arrays, Positions])
     ->  setArrElem(Pid, N, Positions, NewPositions),
         StateOut = [Vars, Arrays, NewPositions]
-    ;   StateOut = [Vars, Arrays, Positions]
+    ;   getArrElem(Pid, Positions, CurrentPos),
+        NewPos is CurrentPos + 1,
+        setArrElem(Pid, NewPos, Positions, NewPositions),
+        StateOut = [Vars, Arrays, NewPositions]
     ).
 execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
     getArrElem(Pid, Positions, CurrentPos),
@@ -144,6 +149,7 @@ execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
     StateOut = [Vars, Arrays, NewPositions].
 
 setNewValue(Var, NewVal, [Vars, Arrays, Positions], _, StateOut) :-
+    atom(Var),
     setVarValue(Var, NewVal, Vars, NewVars),
     StateOut = [NewVars, Arrays, Positions].
 setNewValue(array(Id, E), NewVal, [Vars, Arrays, Positions], Pid, StateOut) :-

@@ -4,24 +4,26 @@
 % Lista trzech elementów:
 %   1. lista par (nazwa zmiennej, wartość);
 %   2. lista par (nazwa tablicy, tablica (czyli lista));
-%   3. lista pozycji każdego z procesów.
+%   3. lista obecnych pozycji każdego z procesów.
 
 :- ensure_loaded(library(lists)).
 
 :- op(700, xfx, <>).
 
-% getSection(+Stmts, -Sections) == Sections to lista pozycji, na których
-% występuje instrukcja sekcji krytycznej.
-getSections(Stmts, Sections) :- getSections(Stmts, 1, Sections).
-getSections([], _, []).
-getSections([Stmt | T], N, Sections) :-
-    M is N + 1,
-    (   Stmt = sekcja
-    ->  Sections = [N | SecT],
-        getSections(T, M, SecT)
-    ;   getSections(T, M, Sections)
+% verify() == pobiera argumenty z wiersza poleceń i wywołuje na nich
+% predykat verify/2
+verify() :- 
+    current_prolog_flag(argv, Args),
+    length(Args, Len),
+    (   Len < 2
+    ->  format('Error: Podano za mało argumentów~n')
+    ;   Args = [NArg, Filename],
+        atom_number(NArg, N),
+        verify(N, Filename)
     ).
 
+% verify(+N, +Filename) == weryfikuje czy program w pliku Filename
+% jest bezpieczny dla N procesów
 verify(N, Filename) :-
     number(N),
     N > 0,
@@ -36,9 +38,12 @@ verify(N, Filename) :-
 verify(N, _) :-
     format('Error: parametr ~p powinien byc liczba > 0~n', [N]).
 
+% verify(+N, +Stmts, +Sections, +States) == daje w wyniku true jeśli
+% program podany jako lista instrukcji Stmts jest bezpieczny dla N procesów,
+% gdzie numery instrukcji sekcji krytycznych są podane w liście Sections,
+% a kolejne stany do przeszukiwania DFS należą do listy States
 verify(N, Stmts, Sections, States) :-
     verify(N, Stmts, Sections, States, []).
-
 verify(_, _, _, [], _) :- !.
 verify(N, Stmts, Sections, [StateIn | T], Visited) :-
     member(StateIn, Visited),
@@ -57,13 +62,30 @@ verify(N, Stmts, Sections, [[Vars, Arrays, Positions] | T], Visited) :-
         false
     ).
 
+% getSection(+Stmts, -Sections) == Sections to lista pozycji, na których
+% występuje instrukcja sekcji krytycznej.
+getSections(Stmts, Sections) :- getSections(Stmts, 1, Sections).
+getSections([], _, []).
+getSections([Stmt | T], N, Sections) :-
+    M is N + 1,
+    (   Stmt = sekcja
+    ->  Sections = [N | SecT],
+        getSections(T, M, SecT)
+    ;   getSections(T, M, Sections)
+    ).
+
+% writeSafe() == wypisuje informację o tym, że program jest bezpieczny
 writeSafe() :-
     format('Program jest poprawny (bezpieczny).~n').
 
+% writeUnsafe(+InSection) == wypisuje informację o niebezpiecznym programie
+% na podstawie listy procesów będących w sekcji krytycznej w tym samym czasie
 writeUnsafe([P1, P2 | _]) :-
     format('Program jest niepoprawny.~n'),
     format('Procesy w sekcji: ~p, ~p.~n', [P1, P2]).
 
+% getError(+InSections, -Error) == Error to lista procesów,
+% które w tym samym czasie są w sekcji krytycznej
 getError([], []).
 getError([InSection | T], Error) :-
     length(InSection, Len),
@@ -72,18 +94,26 @@ getError([InSection | T], Error) :-
     ;   getError(T, Error)
     ).
 
+% safeProgram(+InSections) == daje w wyniku true jeśli lista InSections
+% wskazuje na to, że program jest bezpieczny i false w przeciwnym przypadku
 safeProgram([]).
 safeProgram([InSection | T]) :-
     length(InSection, Len),
     Len =< 1,
     safeProgram(T).
 
+% checkSections(+Sections, +Positions, -InSections) == InSections to lista
+% długości listy Sections, gdzie każdy element jest listą procesów, które
+% w danym momencie znajdują się w danej sekcji krytycznej
 checkSections([], _, []).
 checkSections([Section | T], Positions, InSections) :-
     getProcessesInSection(Section, Positions, Processes),
     InSections = [Processes | IST],
     checkSections(T, Positions, IST).
 
+% getProcessesInSection(+Section, +Positions, -Processes) == Processes to
+% lista procesów znajdujących się w danym momencie (Positions)
+% w sekcji krytycznej Section
 getProcessesInSection(Section, Positions, Processes) :-
     getProcessesInSection(Section, Positions, 0, Processes).
 getProcessesInSection(_, [], _, []) :- !.
@@ -95,6 +125,10 @@ getProcessesInSection(Section, [Pos | T], N, Processes) :-
     ;   getProcessesInSection(Section, T, M, Processes)
     ).
 
+% everyProcessStep(+N, +Stmts, +StateIn, -StatesOut) == StatesOut jest listą
+% N stanów wyjściowych (po jednym dla każdego procesu), gdzie każdy taki
+% stan to stan powstały poprzez wykonanie jednej, obecnej dla danego procesu
+% instrukcji w stanie StateIn
 everyProcessStep(0, _, _, []) :- !.
 everyProcessStep(N, Stmts, StateIn, StatesOut) :-
     M is N - 1,
@@ -186,6 +220,9 @@ execStmt(sekcja, [Vars, Arrays, Positions], Pid, StateOut) :-
     setArrElem(Pid, NewPos, Positions, NewPositions),
     StateOut = [Vars, Arrays, NewPositions].
 
+% setNewValue(+Var, +NewVal, +StateIn, +Pid, -StateOut) == StateOut jest
+% stanem powstałym poprzez zamianę wartości dla zmiennej o identyfikatorze
+% Var na wartość NewVal w stanie StateIn dla procesu o identyfikatorze Pid
 setNewValue(Var, NewVal, [Vars, Arrays, Positions], _, StateOut) :-
     atom(Var),
     setVarValue(Var, NewVal, Vars, NewVars),
@@ -197,7 +234,10 @@ setNewValue(array(Id, E), NewVal, [Vars, Arrays, Positions], Pid, StateOut) :-
     setVarValue(Id, NewArr, Arrays, NewArrays),
     StateOut = [Vars, NewArrays, Positions].
 
-setVarValue(_, NewVal, [(Id, _)], [(Id, NewVal)]) :- !. % niby niepotrzebne!!!!!!!!
+% setVarValue(+Var, +NewVal, +Vars, -Res) == Res jest nową listą par
+% (identyfikator, wartość) powstałą z listy Vars poprzez zamianę wartości
+% elementu o identyfikatorze Var na NewVal
+setVarValue(_, NewVal, [(Id, _)], [(Id, NewVal)]) :- !.
 setVarValue(Var, NewVal, [(Id, Val) | T], Res) :-
     (   Id \= Var
     ->  Res = [(Id, Val) | ResT],
@@ -205,6 +245,8 @@ setVarValue(Var, NewVal, [(Id, Val) | T], Res) :-
     ;   Res = [(Id, NewVal) | T]
     ).
 
+% setArrElem(+Idx, +NewVal, +Arr, -Res) == Res jest nową listą, utworzoną
+% poprzez zamianę elementu pod indeksem Idx w liście Arr na element NewVal
 setArrElem(0, NewVal, [_ | T], [NewVal | T]) :- !.
 setArrElem(Idx, NewVal, [H | T], Res) :-
     NewIdx is Idx - 1,

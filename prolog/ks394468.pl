@@ -42,10 +42,11 @@ verify(N, _) :-
 % program podany jako lista instrukcji Stmts jest bezpieczny dla N procesów,
 % gdzie numery instrukcji sekcji krytycznych są podane w liście Sections,
 % a kolejne stany do przeszukiwania DFS należą do listy States
+verify(_, [], _, _). % pusty program
 verify(N, Stmts, Sections, States) :-
     verify(N, Stmts, Sections, States, []).
-verify(_, _, _, [], _) :- !.
-verify(N, Stmts, Sections, [StateIn | T], Visited) :-
+verify(_, _, _, [], _) :- !. % nie ma więcej wierzchołków do odwiedzenia
+verify(N, Stmts, Sections, [StateIn | T], Visited) :- % wierzchołek już odwiedzony
     member(StateIn, Visited),
     verify(N, Stmts, Sections, T, Visited),
     !.

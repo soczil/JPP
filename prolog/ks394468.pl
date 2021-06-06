@@ -15,9 +15,9 @@
 verify() :- 
     current_prolog_flag(argv, Args),
     length(Args, Len),
-    (   Len < 2
+    (   Len < 3
     ->  format('Error: Podano za mało argumentów~n')
-    ;   Args = [NArg, Filename],
+    ;   Args = [_, NArg, Filename | _],
         atom_number(NArg, N),
         verify(N, Filename)
     ).
@@ -33,7 +33,7 @@ verify(N, Filename) :-
     getSections(Stmts, Sections),
     (   verify(N, Stmts, Sections, [InitialState])
     ->  writeSafe()
-    ;   true
+    ;   true % informacja o błędzie została już wypisana
     ).
 verify(N, _) :-
     format('Error: parametr ~p powinien byc liczba > 0~n', [N]).

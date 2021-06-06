@@ -42,7 +42,7 @@ verify(N, _) :-
 % program podany jako lista instrukcji Stmts jest bezpieczny dla N procesów,
 % gdzie numery instrukcji sekcji krytycznych są podane w liście Sections,
 % a kolejne stany do przeszukiwania DFS należą do listy States
-verify(_, [], _, _). % pusty program
+verify(_, [], _, _). % zakładam, że pusty program jest bezpieczny
 verify(N, Stmts, Sections, States) :-
     verify(N, Stmts, Sections, States, []).
 verify(_, _, _, [], _) :- !. % nie ma więcej wierzchołków do odwiedzenia
